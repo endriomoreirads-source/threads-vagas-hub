@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ThreadsJobs • Radar de Vagas Reais (CLT RJ & Design Gráfico)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">@</div>
+        <div class="brand-text">
+          <h1 class="brand-title">Threads<span>Jobs</span></h1>
+          <p class="brand-subtitle">Radar 24H de Vagas Reais • CLT Rio de Janeiro & Design Gráfico</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="crawler-24h-badge" title="Robô captador rodando continuamente em segundo plano">
+          <span class="pulse-dot"></span>
+          <span>ROBÔ 24H ATIVO</span>
+        </div>
+        <div class="stat-pill" id="statsIndicator">
+          <span id="statsText">Conectando ao banco...</span>
+        </div>
+        <button class="btn-secondary" id="savedTabBtn" type="button">
+          <span>★ Salvas</span>
+          <span class="badge-count" id="savedCountBadge">0</span>
+        </button>
+
+        <!-- Pílula do Usuário Logado & Botão Sair -->
+        <div class="user-profile-badge" id="userProfileBadge" style="display: none;">
+          <span class="user-avatar-mini" id="userAvatarMini">U</span>
+          <span class="user-name-display" id="userNameDisplay">Usuário</span>
+          <button type="button" class="btn-logout" id="btnLogout" title="Sair da conta">Sair</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOLBAR PRINCIPAL COM MENUS EXPANSÍVEIS E MULTI-SELEÇÃO -->
+    <div class="topics-toolbar-wrap">
+      <div class="container topics-toolbar-container" id="topicsToolbar">
+        
+        <!-- Botão 1: Todas as Vagas -->
+        <button type="button" class="topic-chip main-chip active" id="btnAllJobs">
+          <span>🔥 Todas as Vagas</span>
+        </button>
+
+        <!-- Dropdown 1: VAGAS CLT / RIO DE JANEIRO (MULTI-SELEÇÃO COM 'SELECIONAR TODOS') -->
+        <div class="topic-dropdown" id="dropdownClt">
+          <button type="button" class="topic-dropdown-trigger" id="btnTriggerClt" aria-expanded="false">
+            <span class="trigger-icon">💼</span>
+            <span class="trigger-label">Vagas CLT Rio & Baixada</span>
+            <span class="selection-pill" id="badgeCltCount">0 selecionados</span>
+            <span class="trigger-arrow">▾</span>
+          </button>
+          
+          <div class="topic-dropdown-menu" id="menuClt">
+            <!-- Botão Selecionar Todos CLT -->
+            <div class="dropdown-top-actions">
+              <button type="button" class="btn-select-all" id="btnSelectAllClt">
+                ✓ Selecionar Todos CLT
+              </button>
+              <button type="button" class="btn-clear-cluster" id="btnClearClt">
+                Limpar
+              </button>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <!-- Itens com Checkbox para Multi-seleção -->
+            <label class="dropdown-check-item">
+              <input type="checkbox" class="clt-checkbox" value="rj_clt" />
+              <span class="check-box-ui"></span>
+              <span class="item-icon">📍</span>
+              <div class="item-info">
+                <strong>Geral Rio & Belford Roxo</strong>
+                <small>Ordenado por proximidade de você</small>
+              </div>
+            </label>
+
+            <label class="dropdown-check-item">
+              <input type="checkbox" class="clt-checkbox" value="mercado_comercio" />
+              <span class="check-box-ui"></span>
+              <span class="item-icon">🛒</span>
+              <div class="item-info">
+                <strong>Mercado, Lojas & Balcão</strong>
+                <small>Supermercados, atendente, repositor</small>
+              </div>
+            </label>
+
+            <label class="dropdown-check-item">
+              <input type="checkbox" class="clt-checkbox" value="producao_logistica" />
+              <span class="check-box-ui"></span>
+              <span class="item-icon">🏭</span>
+              <div class="item-info">
+                <strong>Aux. de Produção & Logística</strong>
+                <small>Fábricas, estoquista, ajudante, ASG</small>
+              </div>
+            </label>
+
+            <label class="dropdown-check-item">
+              <input type="checkbox" class="clt-checkbox" value="escritorio_adm" />
+              <span class="check-box-ui"></span>
+              <span class="item-icon">🏢</span>
+              <div class="item-info">
+                <strong>Escritório, Recepção & Adm</strong>
+                <small>Auxiliar administrativo, recepcionista</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Dropdown 2: DESIGN GRÁFICO & CRIATIVOS (MULTI-SELEÇÃO COM 'SELECIONAR TODOS') -->
+        <div class="topic-dropdown" id="dropdownDesign">
+          <button type="button" class="topic-dropdown-trigger" id="btnTriggerDesign" aria-expanded="false">
+            <span class="trigger-icon">🎨</span>
+            <span class="trigger-label">Design & Criativos</span>
+            <span class="selection-pill" id="badgeDesignCount">0 selecionados</span>
+            <span class="trigger-arrow">▾</span>
+          </button>
+          
+          <div class="topic-dropdown-menu" id="menuDesign">
+            <!-- Botão Selecionar Todos Design -->
+            <div class="dropdown-top-actions">
+              <button type="button" class="btn-select-all" id="btnSelectAllDesign">
+                ✓ Selecionar Todos Design
+              </button>
+              <button type="button" class="btn-clear-cluster" id="btnClearDesign">
+                Limpar
+              </button>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <label class="dropdown-check-item">
+              <input type="checkbox" class="design-checkbox" value="design" />
+              <span class="check-box-ui"></span>
+              <span class="item-icon">✨</span>
+              <div class="item-info">
+                <strong>Designer Gráfico (Brasil)</strong>
+                <small>Social Media, Identidade, Motion, Ads</small>
+              </div>
+            </label>
+
+            <label class="dropdown-check-item">
+              <input type="checkbox" class="design-checkbox" value="gringa" />
+              <span class="check-box-ui"></span>
+              <span class="item-icon">🌎</span>
+              <div class="item-info">
+                <strong>Vagas Gringas (USD / Remoto)</strong>
+                <small>Clientes internacionais pagando em Dólar/Euro</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Indicador do tópico selecionado ativo -->
+        <div class="current-topic-badge" id="currentTopicDisplay">
+          <span>Visualizando:</span>
+          <strong id="currentTopicLabel">Todas as Vagas</strong>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-layout">
+    <!-- Painel Lateral de Características e Filtros com Scroll Interno Independente -->
+    <aside class="filters-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Preferências & Filtros</h2>
+          <small class="panel-subtitle">Role este painel livremente</small>
+        </div>
+        <button type="button" class="btn-link" id="resetFiltersBtn">Resetar</button>
+      </div>
+
+      <!-- Formulário com scroll interno para nunca cortar nada -->
+      <div class="filters-scrollable">
+        <form id="searchForm">
+          <!-- Radar de Proximidade Belford Roxo / RJ -->
+          <div class="filter-group">
+            <label class="group-label">📍 Proximidade Geográfica (RJ)</label>
+            <div class="check-cards">
+              <label class="check-card">
+                <input type="checkbox" id="filterNearBelfordRoxo" checked />
+                <span class="check-card-ui">
+                  <span class="check-icon">📍</span>
+                  <span>
+                    <strong>Mais Perto de Belford Roxo</strong>
+                    <small>1º Baixada (N. Iguaçu/Caxias) → Z. Norte → Centro</small>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Regime de Contratação -->
+          <div class="filter-group">
+            <label class="group-label">Regime de Trabalho</label>
+            <div class="check-cards">
+              <label class="check-card">
+                <input type="checkbox" id="filterFixo" checked />
+                <span class="check-card-ui">
+                  <span class="check-icon">💼</span>
+                  <span>
+                    <strong>CLT / Carteira Assinada / Fixo</strong>
+                    <small>Salário mensal, VT, VR e benefícios</small>
+                  </span>
+                </span>
+              </label>
+
+              <label class="check-card">
+                <input type="checkbox" id="filterRemoto" checked />
+                <span class="check-card-ui">
+                  <span class="check-icon">🏠</span>
+                  <span>
+                    <strong>Remoto / Home Office</strong>
+                    <small>Trabalho a distância de qualquer lugar</small>
+                  </span>
+                </span>
+              </label>
+
+              <label class="check-card">
+                <input type="checkbox" id="filterFreelance" checked />
+                <span class="check-card-ui">
+                  <span class="check-icon">⚡</span>
+                  <span>
+                    <strong>Freelance / Diária / Projeto</strong>
+                    <small>Demandas pontuais ou pacotes</small>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Origem das Vagas -->
+          <div class="filter-group">
+            <label class="group-label">Origem Geográfica</label>
+            <div class="check-cards">
+              <label class="check-card">
+                <input type="checkbox" id="filterBrasil" checked />
+                <span class="check-card-ui">
+                  <span class="check-icon">🇧🇷</span>
+                  <span>
+                    <strong>Vagas no Brasil (RJ + Remoto BR)</strong>
+                    <small>Empresas, comércios e agências brasileiras</small>
+                  </span>
+                </span>
+              </label>
+
+              <label class="check-card">
+                <input type="checkbox" id="filterGringa" checked />
+                <span class="check-card-ui">
+                  <span class="check-icon">🌎</span>
+                  <span>
+                    <strong>Estrangeiras / Gringas (USD/EUR)</strong>
+                    <small>Oportunidades internacionais</small>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Palavras-chave extras -->
+          <div class="filter-group">
+            <label class="group-label" for="customKeywords">🔍 Buscar Cargo ou Bairro Específico</label>
+            <input
+              type="text"
+              id="customKeywords"
+              class="text-input"
+              placeholder="Ex: Nova Iguaçu, Caxias, Mercado, Photoshop..."
+            />
+            <small class="field-hint">Filtra por bairros, empresas ou ferramentas.</small>
+          </div>
+
+          <!-- O que você NÃO quer (Palavras Excluídas) -->
+          <div class="filter-group">
+            <label class="group-label" for="excludeWords">🚫 O que você NÃO quer (Ocultar)</label>
+            <input
+              type="text"
+              id="excludeWords"
+              class="text-input"
+              placeholder="Ex: estágio, sem remuneração, presencial..."
+            />
+            <small class="field-hint">Oculte vagas com termos indesejados.</small>
+          </div>
+
+          <!-- Verificadores Inteligentes -->
+          <div class="filter-group toggle-row">
+            <div>
+              <label for="onlyHiringToggle" class="toggle-title">Apenas Contratantes Reais</label>
+              <p class="toggle-sub">Oculta candidatos pedindo vaga ou serviços</p>
+            </div>
+            <input type="checkbox" id="onlyHiringToggle" class="switch-input" checked />
+          </div>
+
+          <div class="filter-group toggle-row">
+            <div>
+              <label for="onlyVerifiedToggle" class="toggle-title">🛡️ Exigir Alta Veracidade</label>
+              <p class="toggle-sub">Exige WhatsApp/E-mail de RH, salário ou local</p>
+            </div>
+            <input type="checkbox" id="onlyVerifiedToggle" class="switch-input" />
+          </div>
+
+          <!-- Botão fixo no final do formulário -->
+          <div class="filter-submit-wrap">
+            <button type="submit" class="btn-primary" id="searchBtn">
+              <span class="btn-icon">🔍</span>
+              <span id="searchBtnText">Aplicar Filtros</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </aside>
+
+    <!-- Área Principal de Resultados -->
+    <section class="results-section">
+      <!-- Barra de Controle / Ordenação -->
+      <div class="results-toolbar">
+        <div class="tabs-left">
+          <button type="button" class="tab-btn active" id="tabAllBtn">
+            Todas <span class="tab-badge" id="totalCountBadge">0</span>
+          </button>
+          <button type="button" class="tab-btn" id="tabRJQuickBtn">
+            📍 Baixada & RJ <span class="tab-badge" id="rjCountBadge">0</span>
+          </button>
+          <button type="button" class="tab-btn" id="tabSavedSwitchBtn">
+            ★ Salvas <span class="tab-badge" id="savedTabCount">0</span>
+          </button>
+          <button type="button" class="tab-btn" id="tabDismissedBtn" title="Vagas que você excluiu">
+            🗑️ Excluídas <span class="tab-badge" id="dismissedTabCount">0</span>
+          </button>
+        </div>
+
+        <div class="toolbar-right">
+          <input
+            type="search"
+            id="quickFilterInput"
+            class="quick-search-input"
+            placeholder="Filtrar nesta lista (ex: Caxias, Mercado)..."
+          />
+          <select id="maxAgeSelect" class="sort-select" aria-label="Período da publicação">
+            <option value="0">Qualquer data</option>
+            <option value="4">Até 4 dias atrás</option>
+            <option value="7">Até 7 dias atrás</option>
+            <option value="15">Até 15 dias atrás</option>
+            <option value="30">Até 30 dias atrás</option>
+          </select>
+          <select id="sortSelect" class="sort-select" aria-label="Ordenar vagas">
+            <option value="proximity">📍 Mais Perto de Belford Roxo (Raio RJ)</option>
+            <option value="recent" selected>🕒 Mais Recentes Primeiro</option>
+            <option value="trust">🛡️ Maior Veracidade (Vaga Real)</option>
+            <option value="score">🎯 Maior Afinidade (Match %)</option>
+            <option value="salary">💰 Com Salário Informado</option>
+          </select>
+          <button type="button" class="btn-icon-only" id="refreshBtn" title="Atualizar varredura em tempo real">
+            ↻
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumo de Métricas Rápidas -->
+      <div class="kpi-strip" id="kpiStrip">
+        <div class="kpi-card">
+          <span class="kpi-label">Vagas no Tópico</span>
+          <strong class="kpi-value" id="kpiTotal">--</strong>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">📍 Vagas CLT RJ / Baixada</span>
+          <strong class="kpi-value" id="kpiRJ">--</strong>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">🎨 Design (BR + Gringa)</span>
+          <strong class="kpi-value" id="kpiDesign">--</strong>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">🛡️ Vagas Verificadas</span>
+          <strong class="kpi-value" id="kpiVerified">--</strong>
+        </div>
+      </div>
+
+      <!-- Estado de Carregamento -->
+      <div id="loadingState" class="loading-box hidden">
+        <div class="spinner"></div>
+        <h3>Carregando vagas reais do banco e Threads...</h3>
+        <p>Calculando distância até Belford Roxo, checando WhatsApp/E-mail de RH e verificando autenticidade.</p>
+      </div>
+
+      <!-- Lista de Cards de Vagas -->
+      <div id="jobsGrid" class="jobs-grid"></div>
+    </section>
+  </main>
+
+  <!-- MODAL OBRIGATÓRIO DE PRIMEIRO ACESSO / CADASTRO E LOGIN -->
+  <div class="auth-modal-overlay" id="authModalOverlay" style="display: none;">
+    <div class="auth-modal-card">
+      <div class="auth-modal-header">
+        <div class="brand-logo" style="margin: 0 auto 10px;">@</div>
+        <h2 id="authModalTitle">Bem-vindo ao ThreadsJobs</h2>
+        <p id="authModalSubtitle">Crie sua conta gratuita para salvar vagas, sincronizar seu perfil e acessar o radar 24h.</p>
+      </div>
+
+      <!-- Abas Cadastro vs Login -->
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab-btn active" id="tabRegisterBtn">Criar Conta</button>
+        <button type="button" class="auth-tab-btn" id="tabLoginBtn">Já Tenho Conta</button>
+      </div>
+
+      <div class="auth-error-box" id="authErrorBox" style="display: none;"></div>
+
+      <!-- Formulário de Cadastro -->
+      <form id="formRegister" class="auth-form">
+        <div class="auth-field">
+          <label for="regName">Seu Nome / Como prefere ser chamado</label>
+          <input type="text" id="regName" class="text-input" placeholder="Ex: Endrio Moreira" required />
+        </div>
+        <div class="auth-field">
+          <label for="regEmail">Seu E-mail</label>
+          <input type="email" id="regEmail" class="text-input" placeholder="seuemail@exemplo.com" required />
+        </div>
+        <div class="auth-field">
+          <label for="regPass">Criar Senha de Acesso</label>
+          <input type="password" id="regPass" class="text-input" placeholder="Mínimo 4 caracteres" required />
+        </div>
+        <button type="submit" class="btn-primary" id="btnSubmitRegister">
+          <span>Cadastrar e Acessar Vagas 🚀</span>
+        </button>
+      </form>
+
+      <!-- Formulário de Login -->
+      <form id="formLogin" class="auth-form" style="display: none;">
+        <div class="auth-field">
+          <label for="loginEmail">Seu E-mail Cadastrado</label>
+          <input type="email" id="loginEmail" class="text-input" placeholder="seuemail@exemplo.com" required />
+        </div>
+        <div class="auth-field">
+          <label for="loginPass">Sua Senha</label>
+          <input type="password" id="loginPass" class="text-input" placeholder="Digite sua senha" required />
+        </div>
+        <button type="submit" class="btn-primary" id="btnSubmitLogin">
+          <span>Entrar na Minha Conta 🔐</span>
+        </button>
+      </form>
+
+      <div class="auth-modal-footer">
+        🔒 Seus dados, vagas salvas e preferências ficam seguros e vinculados à sua conta.
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
