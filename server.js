@@ -20,9 +20,57 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Mapa persistente de usuários (email -> { id, name, email, salt, hash, createdAt, savedJobs: [], dismissedJobs: [] })
+const { Pool } = require('pg');
+
+let dbPool = null;
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (DATABASE_URL) {
+  dbPool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
+  console.log('🐘 PostgreSQL conectado para persistência permanente de usuários e sessões!');
+} else {
+  console.log('📁 Modo arquivo local para persistência de usuários.');
+}
+
+async function initPostgresTables() {
+  if (!dbPool) return;
+  try {
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        created_at BIGINT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at BIGINT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS user_jobs (
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        job_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        job_data JSONB,
+        updated_at BIGINT NOT NULL,
+        PRIMARY KEY (user_id, job_id, status)
+      );
+    `);
+    console.log('🐘 Tabelas PostgreSQL verificadas/prontas com sucesso!');
+  } catch (err) {
+    console.error('Erro ao verificar tabelas PostgreSQL:', err.message);
+  }
+}
+initPostgresTables();
+
+// Mapa persistente de usuários em memória (email -> { id, name, email, salt, hash, createdAt, savedJobs: [], dismissedJobs: [] })
 const usersStore = new Map();
-// Sessões ativas em memória (token -> userId)
+// Sessões ativas em memória (token -> email)
 const sessionsStore = new Map();
 
 function hashPassword(password, salt) {
@@ -40,11 +88,11 @@ function loadUsersStore() {
         parsed.forEach(u => {
           if (u && u.email) usersStore.set(u.email.toLowerCase(), u);
         });
-        console.log(`👤 Banco de usuários carregado: ${usersStore.size} contas.`);
+        console.log(`👤 Banco de usuários local carregado: ${usersStore.size} contas.`);
       }
     }
   } catch (err) {
-    console.error('Erro ao ler USERS store:', err.message);
+    console.error('Erro ao ler USERS store local:', err.message);
   }
 }
 
@@ -55,24 +103,175 @@ function saveUsersStore() {
     fs.writeFileSync(tempFile, JSON.stringify(list, null, 2), 'utf-8');
     fs.renameSync(tempFile, USERS_FILE);
   } catch (err) {
-    console.error('Erro ao salvar USERS store:', err.message);
+    console.error('Erro ao salvar USERS store local:', err.message);
   }
 }
 
 loadUsersStore();
 
-// Middleware de Autenticação
-function authMiddleware(req, res, next) {
+async function dbFindUserByEmail(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  if (dbPool) {
+    try {
+      const res = await dbPool.query('SELECT * FROM users WHERE email = $1', [cleanEmail]);
+      if (res.rows.length === 0) return null;
+      const row = res.rows[0];
+      
+      const jobsRes = await dbPool.query('SELECT job_id, status, job_data FROM user_jobs WHERE user_id = $1', [row.id]);
+      const savedJobs = [];
+      const dismissedJobs = [];
+      jobsRes.rows.forEach(r => {
+        if (r.status === 'saved') {
+          savedJobs.push(r.job_data || { id: r.job_id });
+        } else if (r.status === 'dismissed') {
+          dismissedJobs.push(r.job_id);
+        }
+      });
+
+      return {
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        hash: row.password_hash,
+        salt: row.salt,
+        createdAt: Number(row.created_at),
+        savedJobs,
+        dismissedJobs
+      };
+    } catch (err) {
+      console.error('Erro no dbFindUserByEmail:', err.message);
+    }
+  }
+  return usersStore.get(cleanEmail) || null;
+}
+
+async function dbCreateUser({ id, name, email, salt, hash }) {
+  const cleanEmail = email.toLowerCase().trim();
+  const now = Date.now();
+  if (dbPool) {
+    try {
+      await dbPool.query(
+        'INSERT INTO users (id, name, email, password_hash, salt, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+        [id, name, cleanEmail, hash, salt, now]
+      );
+    } catch (err) {
+      console.error('Erro no dbCreateUser:', err.message);
+    }
+  }
+  const user = {
+    id,
+    name,
+    email: cleanEmail,
+    salt,
+    hash,
+    createdAt: new Date().toISOString(),
+    savedJobs: [],
+    dismissedJobs: []
+  };
+  usersStore.set(cleanEmail, user);
+  saveUsersStore();
+  return user;
+}
+
+async function dbCreateSession(token, userId, email) {
+  if (dbPool) {
+    try {
+      await dbPool.query(
+        'INSERT INTO sessions (token, user_id, created_at) VALUES ($1, $2, $3) ON CONFLICT (token) DO UPDATE SET created_at = $3',
+        [token, userId, Date.now()]
+      );
+    } catch (err) {
+      console.error('Erro no dbCreateSession:', err.message);
+    }
+  }
+  sessionsStore.set(token, email);
+}
+
+async function dbFindUserByToken(token) {
+  if (dbPool) {
+    try {
+      const sRes = await dbPool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
+      if (sRes.rows.length > 0) {
+        const userId = sRes.rows[0].user_id;
+        const uRes = await dbPool.query('SELECT * FROM users WHERE id = $1', [userId]);
+        if (uRes.rows.length > 0) {
+          const row = uRes.rows[0];
+          const jobsRes = await dbPool.query('SELECT job_id, status, job_data FROM user_jobs WHERE user_id = $1', [row.id]);
+          const savedJobs = [];
+          const dismissedJobs = [];
+          jobsRes.rows.forEach(r => {
+            if (r.status === 'saved') {
+              savedJobs.push(r.job_data || { id: r.job_id });
+            } else if (r.status === 'dismissed') {
+              dismissedJobs.push(r.job_id);
+            }
+          });
+          return {
+            id: row.id,
+            name: row.name,
+            email: row.email,
+            savedJobs,
+            dismissedJobs
+          };
+        }
+      }
+    } catch (err) {
+      console.error('Erro no dbFindUserByToken:', err.message);
+    }
+  }
+  const email = sessionsStore.get(token);
+  if (email && usersStore.has(email)) {
+    return usersStore.get(email);
+  }
+  return null;
+}
+
+async function dbSyncUserJobs(userId, email, savedJobs, dismissedJobs) {
+  const now = Date.now();
+  if (dbPool) {
+    try {
+      await dbPool.query('DELETE FROM user_jobs WHERE user_id = $1', [userId]);
+      for (const sj of savedJobs) {
+        const jobId = sj.id || sj.code;
+        if (jobId) {
+          await dbPool.query(
+            'INSERT INTO user_jobs (user_id, job_id, status, job_data, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
+            [userId, jobId, 'saved', JSON.stringify(sj), now]
+          );
+        }
+      }
+      for (const djId of dismissedJobs) {
+        if (djId) {
+          await dbPool.query(
+            'INSERT INTO user_jobs (user_id, job_id, status, job_data, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
+            [userId, djId, 'dismissed', null, now]
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Erro no dbSyncUserJobs:', err.message);
+    }
+  }
+  const localUser = usersStore.get(email);
+  if (localUser) {
+    localUser.savedJobs = savedJobs;
+    localUser.dismissedJobs = dismissedJobs;
+    saveUsersStore();
+  }
+}
+
+// Middleware de Autenticação (compatível com PostgreSQL e Fallback local)
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, error: 'Acesso não autorizado. Faça login.' });
   }
   const token = authHeader.split(' ')[1];
-  const email = sessionsStore.get(token);
-  if (!email || !usersStore.has(email)) {
+  const user = await dbFindUserByToken(token);
+  if (!user) {
     return res.status(401).json({ success: false, error: 'Sessão expirada ou inválida.' });
   }
-  req.user = usersStore.get(email);
+  req.user = user;
   next();
 }
 
@@ -856,14 +1055,15 @@ setInterval(() => runBackgroundCrawler(), CRAWL_INTERVAL_MS);
 // ==========================================
 
 // Cadastro de novo usuário
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, error: 'Preencha nome, e-mail e senha.' });
   }
 
   const cleanEmail = email.toLowerCase().trim();
-  if (usersStore.has(cleanEmail)) {
+  const existingUser = await dbFindUserByEmail(cleanEmail);
+  if (existingUser) {
     return res.status(400).json({ success: false, error: 'Este e-mail já está cadastrado. Faça login!' });
   }
 
@@ -872,22 +1072,17 @@ app.post('/api/auth/register', (req, res) => {
   }
 
   const { salt, hash } = hashPassword(password);
-  const user = {
-    id: 'user_' + Date.now(),
+  const userId = 'user_' + Date.now();
+  const user = await dbCreateUser({
+    id: userId,
     name: name.trim(),
     email: cleanEmail,
     salt,
-    hash,
-    createdAt: new Date().toISOString(),
-    savedJobs: [],
-    dismissedJobs: []
-  };
-
-  usersStore.set(cleanEmail, user);
-  saveUsersStore();
+    hash
+  });
 
   const token = crypto.randomBytes(24).toString('hex');
-  sessionsStore.set(token, cleanEmail);
+  await dbCreateSession(token, user.id, cleanEmail);
 
   res.json({
     success: true,
@@ -896,21 +1091,21 @@ app.post('/api/auth/register', (req, res) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      savedJobs: user.savedJobs,
-      dismissedJobs: user.dismissedJobs
+      savedJobs: user.savedJobs || [],
+      dismissedJobs: user.dismissedJobs || []
     }
   });
 });
 
 // Login de usuário existente
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
     return res.status(400).json({ success: false, error: 'Informe e-mail e senha.' });
   }
 
   const cleanEmail = email.toLowerCase().trim();
-  const user = usersStore.get(cleanEmail);
+  const user = await dbFindUserByEmail(cleanEmail);
   if (!user) {
     return res.status(400).json({ success: false, error: 'E-mail não cadastrado. Crie sua conta primeiro!' });
   }
@@ -921,7 +1116,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   const token = crypto.randomBytes(24).toString('hex');
-  sessionsStore.set(token, cleanEmail);
+  await dbCreateSession(token, user.id, cleanEmail);
 
   res.json({
     success: true,
@@ -951,20 +1146,25 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
 });
 
 // Sincronizar / Salvar Vagas do Usuário logado na conta dele
-app.post('/api/user/sync-jobs', authMiddleware, (req, res) => {
+app.post('/api/user/sync-jobs', authMiddleware, async (req, res) => {
   const { savedJobs = [], dismissedJobs = [] } = req.body || {};
+  await dbSyncUserJobs(req.user.id, req.user.email, savedJobs, dismissedJobs);
   req.user.savedJobs = savedJobs;
   req.user.dismissedJobs = dismissedJobs;
-  saveUsersStore();
   res.json({ success: true, countSaved: savedJobs.length, countDismissed: dismissedJobs.length });
 });
 
 // Logout
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     sessionsStore.delete(token);
+    if (dbPool) {
+      try {
+        await dbPool.query('DELETE FROM sessions WHERE token = $1', [token]);
+      } catch (_) {}
+    }
   }
   res.json({ success: true });
 });
