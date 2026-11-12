@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090a0f" />
   <title>ThreadsJobs • Radar de Vagas Reais (CLT RJ & Design Gráfico)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -174,8 +175,18 @@
   </header>
 
   <main class="container main-layout">
+    <!-- Botão de Expandir Filtros em Telas Mobile -->
+    <button type="button" class="btn-toggle-filters-mobile" id="btnToggleFiltersMobile" aria-expanded="false">
+      <div class="toggle-mobile-left">
+        <span class="btn-toggle-icon">⚙️</span>
+        <span class="btn-toggle-title">Filtros & Preferências</span>
+        <span class="toggle-filter-count" id="mobileFilterCount">Ativos</span>
+      </div>
+      <span class="btn-toggle-arrow" id="toggleFiltersArrow">▾</span>
+    </button>
+
     <!-- Painel Lateral de Características e Filtros com Scroll Interno Independente -->
-    <aside class="filters-panel">
+    <aside class="filters-panel" id="filtersPanel">
       <div class="panel-header">
         <div>
           <h2>Preferências & Filtros</h2>

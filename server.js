@@ -312,6 +312,66 @@ function detectRJProximity(text, username) {
   };
 }
 
+function formatPhoneDigits(digits) {
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  } else if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return digits;
+}
+
+function extractWhatsAppInfo(text, isRJ = true) {
+  if (!text) return null;
+  const waLinkMatch = text.match(/(?:https?:\/\/)?(?:api\.)?whatsapp\.com\/send\?phone=([0-9]+)|(?:https?:\/\/)?wa\.me\/([0-9]+)/i);
+  if (waLinkMatch) {
+    const rawDigits = (waLinkMatch[1] || waLinkMatch[2] || '').replace(/\D/g, '');
+    if (rawDigits.length >= 10) {
+      const cleanDigits = rawDigits.startsWith('55') ? rawDigits : `55${rawDigits}`;
+      return {
+        cleanDigits,
+        display: formatPhoneDigits(cleanDigits.slice(2)),
+        url: `https://wa.me/${cleanDigits}`
+      };
+    }
+  }
+
+  const patterns = [
+    /(?:whats(?:app)?|zap|wpp|contato|celular|telefone|tel|cv|curr[ií]culo)\D{0,35}(?:\+?55\s*)?(?:\(?([1-9][0-9])\)?\s*[-.]?\s*)?(9\s*[0-9]{4}\s*[-.]?\s*[0-9]{4}|[2-8][0-9]{3}\s*[-.]?\s*[0-9]{4})/i,
+    /(?:\+?55\s*)?(?:\(?([1-9][0-9])\)?\s*[-.]?\s*)(9\s*[0-9]{4}\s*[-.]?\s*[0-9]{4}|[2-8][0-9]{3}\s*[-.]?\s*[0-9]{4})/i,
+    /(?:\b|\D)(?:55)?([1-9][0-9])[-.\s]?(9[0-9]{8}|9[0-9]{4}[-.\s][0-9]{4})\b/i
+  ];
+
+  for (const regex of patterns) {
+    const match = text.match(regex);
+    if (match) {
+      let digits = match[0].replace(/\D/g, '');
+      if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+        return {
+          cleanDigits: digits,
+          display: formatPhoneDigits(digits.slice(2)),
+          url: `https://wa.me/${digits}`
+        };
+      }
+      if (digits.length === 10 || digits.length === 11) {
+        return {
+          cleanDigits: `55${digits}`,
+          display: formatPhoneDigits(digits),
+          url: `https://wa.me/55${digits}`
+        };
+      }
+      if ((digits.length === 9 || digits.length === 8) && isRJ) {
+        return {
+          cleanDigits: `5521${digits}`,
+          display: `(21) ${formatPhoneDigits(digits)}`,
+          url: `https://wa.me/5521${digits}`
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function evaluateJobAuthenticity({
   text,
   user,
@@ -693,6 +753,8 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
 
   score = Math.max(5, Math.min(99, score));
 
+  const whatsapp = extractWhatsAppInfo(text, proximity.isRJ);
+
   return {
     id: code,
     code,
@@ -717,6 +779,7 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
     hasGeneralJobContext,
     jobTopics,
     proximity,
+    whatsapp,
     modalities,
     contracts,
     seniority,

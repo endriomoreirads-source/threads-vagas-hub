@@ -77,6 +77,66 @@ function persistSavedJobs() {
   syncUserDataWithServer();
 }
 
+function formatPhoneDigits(digits) {
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  } else if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return digits;
+}
+
+function extractWhatsAppInfo(text, isRJ = true) {
+  if (!text) return null;
+  const waLinkMatch = text.match(/(?:https?:\/\/)?(?:api\.)?whatsapp\.com\/send\?phone=([0-9]+)|(?:https?:\/\/)?wa\.me\/([0-9]+)/i);
+  if (waLinkMatch) {
+    const rawDigits = (waLinkMatch[1] || waLinkMatch[2] || '').replace(/\D/g, '');
+    if (rawDigits.length >= 10) {
+      const cleanDigits = rawDigits.startsWith('55') ? rawDigits : `55${rawDigits}`;
+      return {
+        cleanDigits,
+        display: formatPhoneDigits(cleanDigits.slice(2)),
+        url: `https://wa.me/${cleanDigits}`
+      };
+    }
+  }
+
+  const patterns = [
+    /(?:whats(?:app)?|zap|wpp|contato|celular|telefone|tel|cv|curr[ií]culo)\D{0,35}(?:\+?55\s*)?(?:\(?([1-9][0-9])\)?\s*[-.]?\s*)?(9\s*[0-9]{4}\s*[-.]?\s*[0-9]{4}|[2-8][0-9]{3}\s*[-.]?\s*[0-9]{4})/i,
+    /(?:\+?55\s*)?(?:\(?([1-9][0-9])\)?\s*[-.]?\s*)(9\s*[0-9]{4}\s*[-.]?\s*[0-9]{4}|[2-8][0-9]{3}\s*[-.]?\s*[0-9]{4})/i,
+    /(?:\b|\D)(?:55)?([1-9][0-9])[-.\s]?(9[0-9]{8}|9[0-9]{4}[-.\s][0-9]{4})\b/i
+  ];
+
+  for (const regex of patterns) {
+    const match = text.match(regex);
+    if (match) {
+      let digits = match[0].replace(/\D/g, '');
+      if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+        return {
+          cleanDigits: digits,
+          display: formatPhoneDigits(digits.slice(2)),
+          url: `https://wa.me/${digits}`
+        };
+      }
+      if (digits.length === 10 || digits.length === 11) {
+        return {
+          cleanDigits: `55${digits}`,
+          display: formatPhoneDigits(digits),
+          url: `https://wa.me/55${digits}`
+        };
+      }
+      if ((digits.length === 9 || digits.length === 8) && isRJ) {
+        return {
+          cleanDigits: `5521${digits}`,
+          display: `(21) ${formatPhoneDigits(digits)}`,
+          url: `https://wa.me/5521${digits}`
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function persistDismissedJobs() {
   try {
     const arr = Array.from(state.dismissedJobsMap.values());
@@ -253,6 +313,7 @@ function renderJobs() {
   grid.innerHTML = sourceList.map(job => {
     const isSaved = state.savedJobsMap.has(job.id);
     const initials = (job.author.username || 'TD').slice(0, 2).toUpperCase();
+    const waInfo = job.whatsapp || extractWhatsAppInfo(job.text, job.proximity?.isRJ);
     const ver = job.verification || {
       authenticityScore: 70,
       trustLevel: 'Média',
@@ -260,6 +321,10 @@ function renderJobs() {
       reasons: [],
       warnings: []
     };
+
+    const waBadge = waInfo
+      ? `<span class="tag tag-whatsapp" title="WhatsApp disponível para candidatura">📱 WhatsApp (${escapeHtml(waInfo.display)})</span>`
+      : '';
 
     const proximityBadge = job.proximity?.isRJ
       ? `<span class="tag tag-proximity" title="${escapeHtml(job.proximity.zone)} (${escapeHtml(job.proximity.matchedPlace || 'RJ')})">${escapeHtml(job.proximity.badge)}</span>`
@@ -328,6 +393,7 @@ function renderJobs() {
         </div>
 
         <div class="tags-row">
+          ${waBadge}
           ${proximityBadge}
           ${originBadge}
           ${salaryBadge}
@@ -368,6 +434,18 @@ function renderJobs() {
                 🗑️ Excluir
               </button>
             `}
+            ${waInfo ? `
+              <a href="https://wa.me/${waInfo.cleanDigits}?text=${encodeURIComponent('Olá! Vi o anúncio da vaga no Threads e gostaria de me candidatar.')}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="btn-whatsapp"
+                 title="Chamar no WhatsApp: ${escapeHtml(waInfo.display)}">
+                <svg class="wa-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.997.544 1.849.813 2.796.813 3.183 0 5.767-2.586 5.768-5.766 0-3.18-2.585-5.766-5.768-5.766zm9.965 5.765c0 5.518-4.484 10.001-10.001 10.001-1.745 0-3.39-.452-4.832-1.246l-5.663 1.484 1.516-5.529c-.89-1.493-1.4-3.239-1.4-5.093 0-5.517 4.483-10 10-10 5.517 0 10 4.483 10 10z"/>
+                </svg>
+                <span>Chamar no Whats</span>
+              </a>
+            ` : ''}
             <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn-open-threads">
               Abrir no Threads ↗
             </a>
@@ -716,6 +794,21 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   });
+
+  // Toggle do painel de filtros no celular/mobile
+  const btnToggleFiltersMobile = document.getElementById('btnToggleFiltersMobile');
+  const filtersPanel = document.getElementById('filtersPanel');
+  const toggleFiltersArrow = document.getElementById('toggleFiltersArrow');
+  if (btnToggleFiltersMobile && filtersPanel) {
+    btnToggleFiltersMobile.addEventListener('click', () => {
+      const isOpen = filtersPanel.classList.toggle('open');
+      btnToggleFiltersMobile.classList.toggle('active', isOpen);
+      btnToggleFiltersMobile.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (toggleFiltersArrow) {
+        toggleFiltersArrow.textContent = isOpen ? '▴' : '▾';
+      }
+    });
+  }
 
   document.getElementById('searchForm').addEventListener('submit', e => {
     e.preventDefault();

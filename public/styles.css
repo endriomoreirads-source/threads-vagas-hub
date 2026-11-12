@@ -1023,6 +1023,13 @@ body {
   border: 1px solid rgba(16, 185, 129, 0.45);
 }
 
+.tag-whatsapp {
+  background: rgba(37, 211, 102, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(37, 211, 102, 0.45);
+  font-weight: 700;
+}
+
 .tag-remote {
   background: rgba(16, 185, 129, 0.14);
   color: #6ee7b7;
@@ -1186,6 +1193,32 @@ body {
 
 .btn-restore:hover {
   background: rgba(16, 185, 129, 0.25);
+}
+
+.btn-whatsapp {
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: #ffffff !important;
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px rgba(37, 211, 102, 0.32);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-whatsapp:hover {
+  background: linear-gradient(135deg, #2cf074 0%, #0e9d8e 100%);
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.55);
+  transform: translateY(-1px);
+}
+
+.btn-whatsapp .wa-icon {
+  flex-shrink: 0;
 }
 
 .btn-open-threads {
@@ -1400,36 +1433,393 @@ body {
 }
 
 /* ==========================================================================
-   RESPONSIVIDADE (MOBILE & TABLETS)
+   BOTÃO DE FILTROS MOBILE & RESPONSIVIDADE COMPLETA
    ========================================================================== */
-@media (max-width: 1024px) {
+.btn-toggle-filters-mobile {
+  display: none;
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.btn-toggle-filters-mobile:hover,
+.btn-toggle-filters-mobile.active {
+  background: var(--bg-elevated);
+  border-color: rgba(168, 85, 247, 0.45);
+}
+
+.toggle-mobile-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-toggle-icon {
+  font-size: 16px;
+}
+
+.btn-toggle-title {
+  font-size: 13.5px;
+}
+
+.toggle-filter-count {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.btn-toggle-arrow {
+  font-size: 14px;
+  transition: transform 0.2s ease;
+}
+
+.btn-toggle-filters-mobile.active .btn-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVIDADE (TABLETS E CELULARES)
+   ========================================================================== */
+@media (max-width: 900px) {
   .main-layout {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
   }
+
+  .btn-toggle-filters-mobile {
+    display: flex;
+  }
+
   .filters-panel {
+    display: none;
     position: static;
-    max-height: 480px;
-    margin-bottom: 20px;
+    max-height: 520px;
+    margin-bottom: 18px;
   }
-  .quick-search-input {
-    width: 100%;
+
+  .filters-panel.open {
+    display: block;
+    animation: fadeInDown 0.2s ease-out;
   }
-  .sort-select {
-    width: 100%;
-    max-width: 100%;
+
+  .filters-scrollable {
+    max-height: 420px;
   }
 }
 
 @media (max-width: 768px) {
+  html, body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .container {
+    padding: 0 12px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .topbar {
+    padding: 10px 0;
+  }
+
   .topbar-inner {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 10px;
   }
+
+  .brand {
+    gap: 10px;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    font-size: 19px;
+    border-radius: 10px;
+  }
+
+  .brand-title {
+    font-size: 18px;
+  }
+
+  .brand-subtitle {
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.25;
+  }
+
   .topbar-actions {
     width: 100%;
+    display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 6px;
   }
+
+  .crawler-24h-badge {
+    font-size: 10.5px;
+    padding: 4px 8px;
+  }
+
+  .stat-pill {
+    max-width: 170px;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .user-profile-badge {
+    padding: 3px 8px;
+    font-size: 11.5px;
+  }
+
+  .topics-toolbar-wrap {
+    padding: 6px 0;
+  }
+
   .topics-toolbar-container {
-    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 12px;
+  }
+
+  .topics-toolbar-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .main-chip, .topic-dropdown-trigger {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .current-topic-badge {
+    display: none;
+  }
+
+  /* Bottom sheet móvel para os menus de CLT e Design */
+  .topic-dropdown.open .topic-dropdown-menu {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: 100%;
+    max-width: 100vw;
+    max-height: 75vh;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    padding: 18px 16px 32px 16px;
+    overflow-y: auto;
+    background: #141724;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: none;
+    animation: slideUpSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .kpi-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .kpi-card {
+    padding: 10px 12px;
+  }
+
+  .kpi-value {
+    font-size: 18px;
+  }
+
+  .kpi-label {
+    font-size: 10.5px;
+  }
+
+  .results-toolbar {
+    padding: 10px 12px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabs-left {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .tabs-left::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .toolbar-right {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .quick-search-input {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .sort-select {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .btn-icon-only {
+    display: none;
+  }
+
+  .job-card {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+
+  .job-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .author-handle {
+    font-size: 14px;
+  }
+
+  .header-badges {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .trust-pill, .score-pill {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .job-text {
+    font-size: 13.5px;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+
+  .tags-row {
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .tag {
+    font-size: 10.5px;
+    padding: 3px 7px;
+  }
+
+  .authenticity-box {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .job-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .footer-left {
+    font-size: 11px;
+    text-align: left;
+  }
+
+  .footer-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .btn-whatsapp, .btn-open-threads {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+    text-align: center;
+    height: 40px;
+    font-size: 12.5px;
+  }
+
+  .btn-save, .btn-dismiss, .btn-check-live, .btn-restore {
+    flex: 1 1 calc(33% - 4px);
+    justify-content: center;
+    text-align: center;
+    height: 36px;
+    font-size: 11px;
+    padding: 6px 4px;
+  }
+
+  .auth-modal-card {
+    padding: 22px 18px;
+    max-width: 95vw;
+    border-radius: 16px;
+  }
+
+  .auth-input {
+    font-size: 16px !important;
+    height: 44px;
+  }
+
+  .btn-auth-submit {
+    height: 46px;
+    font-size: 15px;
   }
 }
