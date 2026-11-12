@@ -3,3 +3,4 @@ node_modules
 *.tmp
 data/server.log
 data/server-error.log
+bin/
