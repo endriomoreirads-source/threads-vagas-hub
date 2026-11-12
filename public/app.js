@@ -419,36 +419,43 @@ function renderJobs() {
             ❤️ ${job.likeCount || 0} curtidas • ID: <code>${escapeHtml(job.code)}</code>
           </div>
           <div class="footer-actions">
-            <button type="button" class="btn-check-live" data-verify-code="${escapeHtml(job.code)}">
-              🔍 Testar se Post Está Ativo
-            </button>
-            <button type="button" class="btn-save ${isSaved ? 'saved' : ''}" data-save-id="${escapeHtml(job.id)}">
-              ${isSaved ? '★ Salva' : '☆ Salvar'}
-            </button>
-            ${state.activeTab === 'dismissed' ? `
-              <button type="button" class="btn-restore" data-restore-id="${escapeHtml(job.id)}" title="Restaurar para a pesquisa principal">
-                ↺ Restaurar Vaga
-              </button>
-            ` : `
-              <button type="button" class="btn-dismiss" data-dismiss-id="${escapeHtml(job.id)}" title="Remover e não exibir mais nesta lista">
-                🗑️ Excluir
-              </button>
-            `}
-            ${waInfo ? `
-              <a href="https://wa.me/${waInfo.cleanDigits}?text=${encodeURIComponent('Olá! Vi o anúncio da vaga no Threads e gostaria de me candidatar.')}"
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 class="btn-whatsapp"
-                 title="Chamar no WhatsApp: ${escapeHtml(waInfo.display)}">
-                <svg class="wa-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.997.544 1.849.813 2.796.813 3.183 0 5.767-2.586 5.768-5.766 0-3.18-2.585-5.766-5.768-5.766zm9.965 5.765c0 5.518-4.484 10.001-10.001 10.001-1.745 0-3.39-.452-4.832-1.246l-5.663 1.484 1.516-5.529c-.89-1.493-1.4-3.239-1.4-5.093 0-5.517 4.483-10 10-10 5.517 0 10 4.483 10 10z"/>
-                </svg>
-                <span>Chamar no Whats</span>
+            <!-- Linha 1: Ações Principais de Contato / Abertura -->
+            <div class="actions-primary-row">
+              ${waInfo ? `
+                <a href="https://wa.me/${waInfo.cleanDigits}?text=${encodeURIComponent('Olá! Vi o anúncio da vaga no Threads e gostaria de me candidatar.')}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="btn-whatsapp"
+                   title="Chamar no WhatsApp: ${escapeHtml(waInfo.display)}">
+                  <svg class="wa-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.997.544 1.849.813 2.796.813 3.183 0 5.767-2.586 5.768-5.766 0-3.18-2.585-5.766-5.768-5.766zm9.965 5.765c0 5.518-4.484 10.001-10.001 10.001-1.745 0-3.39-.452-4.832-1.246l-5.663 1.484 1.516-5.529c-.89-1.493-1.4-3.239-1.4-5.093 0-5.517 4.483-10 10-10 5.517 0 10 4.483 10 10z"/>
+                  </svg>
+                  <span>Chamar no Whats</span>
+                </a>
+              ` : ''}
+              <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn-open-threads ${!waInfo ? 'btn-open-threads-full' : ''}">
+                Abrir no Threads ↗
               </a>
-            ` : ''}
-            <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn-open-threads">
-              Abrir no Threads ↗
-            </a>
+            </div>
+
+            <!-- Linha 2: Ações de Gestão em Grid 3 colunas (sempre 100% contido sem vazar) -->
+            <div class="actions-secondary-grid">
+              <button type="button" class="btn-save ${isSaved ? 'saved' : ''}" data-save-id="${escapeHtml(job.id)}">
+                ${isSaved ? '★ Salva' : '☆ Salvar'}
+              </button>
+              ${state.activeTab === 'dismissed' ? `
+                <button type="button" class="btn-restore" data-restore-id="${escapeHtml(job.id)}" title="Restaurar para a pesquisa principal">
+                  ↺ Restaurar
+                </button>
+              ` : `
+                <button type="button" class="btn-dismiss" data-dismiss-id="${escapeHtml(job.id)}" title="Remover e não exibir mais nesta lista">
+                  🗑️ Excluir
+                </button>
+              `}
+              <button type="button" class="btn-check-live" data-verify-code="${escapeHtml(job.code)}" title="Testar se o post está ativo">
+                🔍 Checar
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -867,10 +874,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderJobs();
   };
 
-  document.getElementById('tabAllBtn').addEventListener('click', () => switchTab('all'));
-  document.getElementById('tabRJQuickBtn').addEventListener('click', () => switchTab('rj_quick'));
-  document.getElementById('tabSavedSwitchBtn').addEventListener('click', () => switchTab('saved'));
-  document.getElementById('savedTabBtn').addEventListener('click', () => switchTab('saved'));
+  document.getElementById('tabAllBtn')?.addEventListener('click', () => switchTab('all'));
+  document.getElementById('tabRJQuickBtn')?.addEventListener('click', () => switchTab('rj_quick'));
+  document.getElementById('tabSavedSwitchBtn')?.addEventListener('click', () => switchTab('saved'));
+  document.getElementById('savedTabBtn')?.addEventListener('click', () => switchTab('saved'));
   const btnTabDismissed = document.getElementById('tabDismissedBtn');
   if (btnTabDismissed) btnTabDismissed.addEventListener('click', () => switchTab('dismissed'));
 
