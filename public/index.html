@@ -65,10 +65,20 @@
           </button>
           
           <div class="topic-dropdown-menu" id="menuClt">
+            <div class="sheet-drag-handle"></div>
+            
+            <div class="sheet-header">
+              <div class="sheet-title-box">
+                <h3>💼 Vagas CLT Rio & Baixada</h3>
+                <small>Toque nas opções para filtrar por setor</small>
+              </div>
+              <button type="button" class="btn-close-sheet" id="btnCloseClt" aria-label="Fechar">✕</button>
+            </div>
+
             <!-- Botão Selecionar Todos CLT -->
             <div class="dropdown-top-actions">
               <button type="button" class="btn-select-all" id="btnSelectAllClt">
-                ✓ Selecionar Todos CLT
+                ✓ Selecionar Todos
               </button>
               <button type="button" class="btn-clear-cluster" id="btnClearClt">
                 Limpar
@@ -78,45 +88,53 @@
             <div class="dropdown-divider"></div>
 
             <!-- Itens com Checkbox para Multi-seleção -->
-            <label class="dropdown-check-item">
-              <input type="checkbox" class="clt-checkbox" value="rj_clt" />
-              <span class="check-box-ui"></span>
-              <span class="item-icon">📍</span>
-              <div class="item-info">
-                <strong>Geral Rio & Belford Roxo</strong>
-                <small>Ordenado por proximidade de você</small>
-              </div>
-            </label>
+            <div class="dropdown-check-list">
+              <label class="dropdown-check-item" for="cb_rj_clt">
+                <input type="checkbox" id="cb_rj_clt" class="clt-checkbox" value="rj_clt" />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">📍</span>
+                <div class="item-info">
+                  <strong>Geral Rio & Belford Roxo</strong>
+                  <small>Ordenado por proximidade de você</small>
+                </div>
+              </label>
 
-            <label class="dropdown-check-item">
-              <input type="checkbox" class="clt-checkbox" value="mercado_comercio" />
-              <span class="check-box-ui"></span>
-              <span class="item-icon">🛒</span>
-              <div class="item-info">
-                <strong>Mercado, Lojas & Balcão</strong>
-                <small>Supermercados, atendente, repositor</small>
-              </div>
-            </label>
+              <label class="dropdown-check-item" for="cb_mercado_comercio">
+                <input type="checkbox" id="cb_mercado_comercio" class="clt-checkbox" value="mercado_comercio" />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🛒</span>
+                <div class="item-info">
+                  <strong>Mercado, Lojas & Balcão</strong>
+                  <small>Supermercados, atendente, repositor</small>
+                </div>
+              </label>
 
-            <label class="dropdown-check-item">
-              <input type="checkbox" class="clt-checkbox" value="producao_logistica" />
-              <span class="check-box-ui"></span>
-              <span class="item-icon">🏭</span>
-              <div class="item-info">
-                <strong>Aux. de Produção & Logística</strong>
-                <small>Fábricas, estoquista, ajudante, ASG</small>
-              </div>
-            </label>
+              <label class="dropdown-check-item" for="cb_producao_logistica">
+                <input type="checkbox" id="cb_producao_logistica" class="clt-checkbox" value="producao_logistica" />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🏭</span>
+                <div class="item-info">
+                  <strong>Aux. de Produção & Logística</strong>
+                  <small>Fábricas, estoquista, ajudante, ASG</small>
+                </div>
+              </label>
 
-            <label class="dropdown-check-item">
-              <input type="checkbox" class="clt-checkbox" value="escritorio_adm" />
-              <span class="check-box-ui"></span>
-              <span class="item-icon">🏢</span>
-              <div class="item-info">
-                <strong>Escritório, Recepção & Adm</strong>
-                <small>Auxiliar administrativo, recepcionista</small>
-              </div>
-            </label>
+              <label class="dropdown-check-item" for="cb_escritorio_adm">
+                <input type="checkbox" id="cb_escritorio_adm" class="clt-checkbox" value="escritorio_adm" />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🏢</span>
+                <div class="item-info">
+                  <strong>Escritório, Recepção & Adm</strong>
+                  <small>Auxiliar administrativo, recepcionista</small>
+                </div>
+              </label>
+            </div>
+
+            <div class="sheet-footer">
+              <button type="button" class="btn-sheet-apply" id="btnApplyClt">
+                Concluir Seleção ✓
+              </button>
+            </div>
           </div>
         </div>
 
@@ -130,10 +148,20 @@
           </button>
           
           <div class="topic-dropdown-menu" id="menuDesign">
+            <div class="sheet-drag-handle"></div>
+
+            <div class="sheet-header">
+              <div class="sheet-title-box">
+                <h3>🎨 Design & Criativos</h3>
+                <small>Selecione opções nacionais e internacionais</small>
+              </div>
+              <button type="button" class="btn-close-sheet" id="btnCloseDesign" aria-label="Fechar">✕</button>
+            </div>
+
             <!-- Botão Selecionar Todos Design -->
             <div class="dropdown-top-actions">
               <button type="button" class="btn-select-all" id="btnSelectAllDesign">
-                ✓ Selecionar Todos Design
+                ✓ Selecionar Todos
               </button>
               <button type="button" class="btn-clear-cluster" id="btnClearDesign">
                 Limpar
@@ -142,25 +170,33 @@
 
             <div class="dropdown-divider"></div>
 
-            <label class="dropdown-check-item">
-              <input type="checkbox" class="design-checkbox" value="design" />
-              <span class="check-box-ui"></span>
-              <span class="item-icon">✨</span>
-              <div class="item-info">
-                <strong>Designer Gráfico (Brasil)</strong>
-                <small>Social Media, Identidade, Motion, Ads</small>
-              </div>
-            </label>
+            <div class="dropdown-check-list">
+              <label class="dropdown-check-item" for="cb_design">
+                <input type="checkbox" id="cb_design" class="design-checkbox" value="design" />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">✨</span>
+                <div class="item-info">
+                  <strong>Designer Gráfico (Brasil)</strong>
+                  <small>Social Media, Identidade, Motion, Ads</small>
+                </div>
+              </label>
 
-            <label class="dropdown-check-item">
-              <input type="checkbox" class="design-checkbox" value="gringa" />
-              <span class="check-box-ui"></span>
-              <span class="item-icon">🌎</span>
-              <div class="item-info">
-                <strong>Vagas Gringas (USD / Remoto)</strong>
-                <small>Clientes internacionais pagando em Dólar/Euro</small>
-              </div>
-            </label>
+              <label class="dropdown-check-item" for="cb_gringa">
+                <input type="checkbox" id="cb_gringa" class="design-checkbox" value="gringa" />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🌎</span>
+                <div class="item-info">
+                  <strong>Vagas Gringas (USD / Remoto)</strong>
+                  <small>Clientes internacionais pagando em Dólar/Euro</small>
+                </div>
+              </label>
+            </div>
+
+            <div class="sheet-footer">
+              <button type="button" class="btn-sheet-apply" id="btnApplyDesign">
+                Concluir Seleção ✓
+              </button>
+            </div>
           </div>
         </div>
 
@@ -468,6 +504,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Backdrop do Bottom Sheet para Celulares -->
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
 
   <script src="app.js"></script>
 </body>

@@ -689,9 +689,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Interatividade dos Checkboxes dentro do menu CLT
-  document.querySelectorAll('.clt-checkbox').forEach(cb => {
-    cb.addEventListener('change', () => {
+  // Interatividade completa dos itens com resposta tátil instantânea
+  document.querySelectorAll('.dropdown-check-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cb = item.querySelector('input[type="checkbox"]');
+      if (!cb) return;
+      if (e.target !== cb) {
+        cb.checked = !cb.checked;
+      }
       if (cb.checked) {
         state.selectedTopics.add(cb.value);
       } else {
@@ -721,18 +727,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Interatividade dos Checkboxes dentro do menu Design
-  document.querySelectorAll('.design-checkbox').forEach(cb => {
-    cb.addEventListener('change', () => {
-      if (cb.checked) {
-        state.selectedTopics.add(cb.value);
-      } else {
-        state.selectedTopics.delete(cb.value);
-      }
-      syncToolbarUI();
-    });
-  });
-
   // Botão 'Selecionar Todos Design' (Brasil + Gringa juntos)
   const btnSelectAllDesign = document.getElementById('btnSelectAllDesign');
   if (btnSelectAllDesign) {
@@ -753,7 +747,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Comportamento de Abrir/Retrair Dropdowns ao clicar nos triggers
+  // Controle inteligente de Bottom Sheet / Dropdown
+  const sheetBackdrop = document.getElementById('sheetBackdrop');
+
+  const closeAllDropdowns = () => {
+    document.querySelectorAll('.topic-dropdown').forEach(d => {
+      d.classList.remove('open');
+      d.querySelector('.topic-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+    });
+    if (sheetBackdrop) sheetBackdrop.classList.remove('active');
+    document.body.classList.remove('sheet-open');
+  };
+
+  const openDropdown = (dropdown, trigger) => {
+    const isAlreadyOpen = dropdown.classList.contains('open');
+    closeAllDropdowns();
+    if (!isAlreadyOpen) {
+      dropdown.classList.add('open');
+      trigger.setAttribute('aria-expanded', 'true');
+      if (sheetBackdrop) sheetBackdrop.classList.add('active');
+      document.body.classList.add('sheet-open');
+    }
+  };
+
   const setupDropdown = (dropdownId, triggerId) => {
     const dropdown = document.getElementById(dropdownId);
     const trigger = document.getElementById(triggerId);
@@ -761,37 +777,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isOpen = dropdown.classList.contains('open');
-
-      // Fecha todos os outros dropdowns
-      document.querySelectorAll('.topic-dropdown').forEach(d => {
-        if (d !== dropdown) {
-          d.classList.remove('open');
-          d.querySelector('.topic-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
-        }
-      });
-
-      // Alterna expandir / retrair
-      if (isOpen) {
-        dropdown.classList.remove('open');
-        trigger.setAttribute('aria-expanded', 'false');
-      } else {
-        dropdown.classList.add('open');
-        trigger.setAttribute('aria-expanded', 'true');
-      }
+      openDropdown(dropdown, trigger);
     });
   };
 
   setupDropdown('dropdownClt', 'btnTriggerClt');
   setupDropdown('dropdownDesign', 'btnTriggerDesign');
 
-  // Fecha dropdowns se clicar fora na página
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.topic-dropdown')) {
-      document.querySelectorAll('.topic-dropdown').forEach(d => {
-        d.classList.remove('open');
-        d.querySelector('.topic-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+  // Botões de Fechar e Concluir nos menus
+  ['btnCloseClt', 'btnApplyClt', 'btnCloseDesign', 'btnApplyDesign'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllDropdowns();
       });
+    }
+  });
+
+  // Tocar no backdrop fecha o bottom sheet
+  if (sheetBackdrop) {
+    sheetBackdrop.addEventListener('click', closeAllDropdowns);
+  }
+
+  // Fecha dropdowns se clicar fora na página (Desktop)
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.topic-dropdown') && !e.target.closest('.topic-dropdown-menu')) {
+      closeAllDropdowns();
     }
   });
 
