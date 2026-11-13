@@ -257,17 +257,33 @@ function renderJobs() {
     sourceList = sourceList.filter(j => (j.ageDays || 0) <= state.maxAgeDays);
   }
 
-  // Filtro rápido por texto na barra superior
+  // Filtro rápido inteligente por texto na barra superior
   if (state.quickSearch.trim()) {
-    const q = state.quickSearch.toLowerCase().trim();
-    sourceList = sourceList.filter(j =>
-      j.text.toLowerCase().includes(q) ||
-      j.author.username.toLowerCase().includes(q) ||
-      (j.proximity?.zone || '').toLowerCase().includes(q) ||
-      (j.proximity?.matchedPlace || '').toLowerCase().includes(q) ||
-      j.areas.some(a => a.toLowerCase().includes(q)) ||
-      j.tools.some(t => t.toLowerCase().includes(q))
-    );
+    const rawQ = state.quickSearch.toLowerCase().trim();
+    // Normaliza variações comuns de busca ("procura designer", "contrato designer", "vaga clt")
+    const searchCore = rawQ
+      .replace(/\b(procura(?:-se)?|procuro|procurando|contrata(?:-se)?|contrato|contratando|preciso\s+de|preciso|busco|buscando|vaga(?:s)?\s+(?:de|para)?|vaga(?:s)?)\b/gi, '')
+      .trim();
+
+    sourceList = sourceList.filter(j => {
+      const textLower = j.text.toLowerCase();
+      // Match da frase completa
+      if (textLower.includes(rawQ)) return true;
+      // Match do cargo limpo (ex: "designer", "operador de caixa")
+      if (searchCore.length >= 3 && textLower.includes(searchCore)) return true;
+      // Match de palavras
+      const words = rawQ.split(/\s+/).filter(w => w.length >= 3);
+      if (words.length > 0 && words.every(w => textLower.includes(w))) return true;
+
+      return (
+        j.author.username.toLowerCase().includes(rawQ) ||
+        (j.proximity?.zone || '').toLowerCase().includes(rawQ) ||
+        (j.proximity?.matchedPlace || '').toLowerCase().includes(rawQ) ||
+        (j.platformLabel || '').toLowerCase().includes(rawQ) ||
+        j.areas.some(a => a.toLowerCase().includes(rawQ)) ||
+        j.tools.some(t => t.toLowerCase().includes(rawQ))
+      );
+    });
   }
 
   // Ordenação
@@ -704,6 +720,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // Se selecionou topicos específicos mas estava na aba RJ CLT rapida, garante exibicao
+    if (selected.size > 0 && state.activeTab === 'rj_quick') {
+      state.activeTab = 'all';
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tabAllBtn')?.classList.add('active');
+    }
+
     // Se tem tópicos CLT selecionados, prioriza proximidade de Belford Roxo
     const hasRJ = Array.from(selected).some(t => CLT_TOPICS.includes(t));
     if (hasRJ) {
@@ -729,26 +752,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Interatividade completa dos itens com resposta tátil instantânea
+  // Interatividade completa dos itens com resposta tátil instantânea e sem duplo clique
   document.querySelectorAll('.dropdown-check-item').forEach(item => {
     item.addEventListener('click', (e) => {
       e.stopPropagation();
       const cb = item.querySelector('input[type="checkbox"]');
       if (!cb) return;
-      if (e.target !== cb) {
-        cb.checked = !cb.checked;
-      }
+
+      // Inverte o estado do checkbox
+      cb.checked = !cb.checked;
+
+      const isChecked = cb.checked;
+      const val = cb.value;
+
       if (cb.classList.contains('platform-checkbox')) {
-        if (cb.checked) {
-          state.selectedPlatforms.add(cb.value);
+        if (isChecked) {
+          state.selectedPlatforms.add(val);
         } else {
-          state.selectedPlatforms.delete(cb.value);
+          state.selectedPlatforms.delete(val);
         }
       } else {
-        if (cb.checked) {
-          state.selectedTopics.add(cb.value);
+        if (isChecked) {
+          state.selectedTopics.add(val);
         } else {
-          state.selectedTopics.delete(cb.value);
+          state.selectedTopics.delete(val);
         }
       }
       syncToolbarUI();

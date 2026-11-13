@@ -315,6 +315,10 @@ loadPersistentStore();
 
 // Queries comprovadas que retornam SSR no Threads
 const QUERIES_DESIGN_BR = [
+  'procura designer',
+  'procura-se designer',
+  'contrato designer',
+  'contrata designer',
   'vaga designer grafico',
   'vaga designer',
   'preciso de designer',
@@ -343,6 +347,13 @@ const QUERIES_DESIGN_INTL = [
 ];
 
 const QUERIES_RJ_CLT = [
+  'procura atendente',
+  'contrata atendente',
+  'contrato atendente',
+  'procura operador',
+  'contrata operador de caixa',
+  'procura repositor',
+  'contrata auxiliar administrativo',
   'vagas rj',
   'vagasrJ',
   'empregorj',
@@ -1336,14 +1347,34 @@ app.post('/api/search', async (req, res) => {
       // Se não escolheu tópicos específicos, mostra todas as vagas
       if (selectedTopicsList.length === 0) return true;
 
-      // Se selecionou múltiplos tópicos, faz o match com qualquer um deles (OR)
+      // Filtro estrito para garantir que operador de caixa / balcao nunca apareca em Design
+      const isRealDedicatedDesignJob = (item) => {
+        const text = (item.text || '').toLowerCase();
+        
+        // Bloqueio de cargos operacionais puros que nao sao design
+        const operationalBlockRegex = /\b(operador\s+de\s+caixa|atendente\s+de\s+caixa|frente\s+de\s+caixa|operador\s+de\s+loja|repositor|empacotador|balconista|aougueiro|padeiro|chapeiro|cozinheiro|gar[çc]om|auxiliar\s+de\s+limpeza|asg|auxiliar\s+de\s+servi[çc]os\s+gerais|porteiro|vigilante|motorista|operador\s+de\s+telemarketing|telemarketing|call\s+center|operador\s+de\s+telecobran[çc]a|almoxarife|auxiliar\s+de\s+almoxarifado)\b/i;
+
+        if (operationalBlockRegex.test(text)) {
+          // Se o post cita cargos operacionais e o inicio/titulo nao e explicitamente sobre design, bloqueia!
+          if (!/^(?:.*?(?:vaga|procura|contrat|precis).*?designer|.*?designer\s+gr[aá]fico)/i.test(text.slice(0, 80))) {
+            return false;
+          }
+        }
+
+        // Variacoes verbais de contratacao de designer
+        const designIntentRegex = /\b(procura(?:-se)?\s+designer|procuro\s+designer|procurando\s+designer|contrato\s+designer|contrata(?:-se)?\s+designer|contratando\s+designer|preciso\s+de\s+designer|precisa-se\s+de\s+designer|busco\s+designer|buscando\s+designer|designer|design\s+gr[aá]fico|graphic\s+designer|graphic\s+design|brand\s+designer|visual\s+designer|motion\s+designer|social\s+media\s+designer|ui[\s/-]?ux|web\s+designer|diretor\s+de\s+arte|diagramador|criativo(?:s)?\s+para\s+an[uú]ncios|photoshop|illustrator|figma|after\s+effects)\b/i;
+
+        return item.hasDesignContext || designIntentRegex.test(text);
+      };
+
+      // Se selecionou multiplos topicos, faz o match com qualquer um deles (OR)
       return selectedTopicsList.some(t => {
-        if (t === 'design') return item.hasDesignContext;
-        if (t === 'gringa') return item.isInternational;
+        if (t === 'design') return isRealDedicatedDesignJob(item);
+        if (t === 'gringa') return item.isInternational && isRealDedicatedDesignJob(item);
         if (t === 'rj_clt') return item.proximity?.isRJ || (item.hasGeneralJobContext && !item.isInternational);
-        if (t === 'mercado_comercio') return item.jobTopics.includes('mercado_comercio');
-        if (t === 'producao_logistica') return item.jobTopics.includes('producao_logistica');
-        if (t === 'escritorio_adm') return item.jobTopics.includes('escritorio_adm');
+        if (t === 'mercado_comercio') return item.jobTopics.includes('mercado_comercio') || /\b(caixa|operador|repositor|balconista|atendente|mercado)\b/i.test(item.text);
+        if (t === 'producao_logistica') return item.jobTopics.includes('producao_logistica') || /\b(log[íi]stica|produ[çc][ãa]o|almoxarif|estoque|carga|f[áa]brica)\b/i.test(item.text);
+        if (t === 'escritorio_adm') return item.jobTopics.includes('escritorio_adm') || /\b(administrativ|recep[çc][ãa]o|secret[áa]ri|financeir|atendimento)\b/i.test(item.text);
         return false;
       });
     });
