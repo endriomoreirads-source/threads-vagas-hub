@@ -1,1 +1,12 @@
-{"users":[],"sessions":{}}
+[
+  {
+    "id": "user_1794444236188",
+    "name": "Endrio Teste Postgres",
+    "email": "endrio_pg@test.com",
+    "salt": "eeb1b62bd39eaffdef8ed446b956d1f4",
+    "hash": "cba6840ee6f062254a5a070e8aef0552d02afa5fda0b9e41a5f05b9744c756b9bc4db41e911265fc7c3e13efd9d590b0d35b48043df891132d033f5a8a1b3098",
+    "createdAt": "2026-11-12T00:43:56.188Z",
+    "savedJobs": [],
+    "dismissedJobs": []
+  }
+]

@@ -1190,6 +1190,20 @@ body {
   flex-wrap: wrap;
 }
 
+.actions-primary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actions-secondary-grid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .btn-check-live {
   background: rgba(99, 102, 241, 0.14);
   border: 1px solid rgba(99, 102, 241, 0.35);
@@ -1699,34 +1713,54 @@ body {
     font-size: 11px;
   }
 
-  /* Toolbar de Topicos Deslizavel com Toque Suave */
+  /* Toolbar de Topicos em Grid 2x2 Perfeita no Mobile (Sem vazamento lateral, 100% visivel) */
   .topics-toolbar-wrap {
     padding: 8px 0;
     margin-bottom: 6px;
   }
 
   .topics-toolbar-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 0 12px;
-    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 0 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
   }
 
-  .topics-toolbar-container::-webkit-scrollbar {
-    display: none;
+  .main-chip, .topic-dropdown {
+    width: 100% !important;
+    margin: 0 !important;
   }
 
   .main-chip, .topic-dropdown-trigger {
-    flex-shrink: 0;
-    padding: 7px 12px;
-    font-size: 12px;
-    height: 34px;
-    border-radius: 999px;
+    width: 100% !important;
+    padding: 7px 10px !important;
+    font-size: 11.5px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+  }
+
+  .main-chip {
+    justify-content: center !important;
+  }
+
+  .topic-dropdown-trigger .trigger-label {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 95px !important;
+    font-size: 11px !important;
+  }
+
+  .topic-dropdown-trigger .selection-pill {
+    font-size: 9px !important;
+    padding: 2px 5px !important;
   }
 
   .current-topic-badge {
@@ -2175,7 +2209,21 @@ body {
   .actions-secondary-grid .btn-save,
   .actions-secondary-grid .btn-dismiss,
   .actions-secondary-grid .btn-restore,
-  .actions-secondary-grid .btn-check-live {
+  .actions-secondary-grid .actions-primary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actions-secondary-grid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-check-live {
     width: 100% !important;
     height: 36px !important;
     font-size: 11px !important;

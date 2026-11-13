@@ -10,7 +10,15 @@ const PORT = process.env.PORT || 3456;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Arquivos de banco de dados persistentes em disco (JSON Store atômico)
 const DATA_DIR = path.join(__dirname, 'data');
@@ -421,14 +429,23 @@ const RJ_PROXIMITY_TIERS = [
   }
 ];
 
-const THREADS_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,es;q=0.7',
-  'Sec-Fetch-Dest': 'document',
-  'Sec-Fetch-Mode': 'navigate',
-  'Sec-Fetch-Site': 'none'
-};
+const THREADS_USER_AGENTS = [
+  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+  'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+];
+
+function getThreadsHeaders() {
+  const ua = THREADS_USER_AGENTS[Math.floor(Math.random() * THREADS_USER_AGENTS.length)];
+  return {
+    'User-Agent': ua,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,es;q=0.7',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none'
+  };
+}
 
 function extractPostsFromJSON(obj, found = []) {
   if (!obj || typeof obj !== 'object') return found;
@@ -458,7 +475,7 @@ async function fetchThreadsUrl(url) {
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(url, {
-      headers: THREADS_HEADERS,
+      headers: getThreadsHeaders(),
       signal: controller.signal
     });
     clearTimeout(timeout);
@@ -486,9 +503,15 @@ async function fetchThreadsUrl(url) {
   }
 }
 
-async function fetchThreadsQuery(query, serpType = 'default') {
-  const url = `https://www.threads.com/search?q=${encodeURIComponent(query)}&serp_type=${serpType}`;
-  return fetchThreadsUrl(url);
+async function fetchThreadsQuery(query, serpType = 'recent') {
+  // Query threads.net com serpType especificado (recent traz os ultimos posts cronologicos)
+  const urlNet = `https://www.threads.net/search?q=${encodeURIComponent(query)}&serp_type=${serpType}`;
+  const res = await fetchThreadsUrl(urlNet);
+  if (res && res.length > 0) return res;
+
+  // Fallback para threads.com
+  const urlCom = `https://www.threads.com/search?q=${encodeURIComponent(query)}&serp_type=${serpType}`;
+  return fetchThreadsUrl(urlCom);
 }
 
 async function fetchThreadsProfile(username) {
@@ -729,11 +752,11 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
   if (isInternational) jobTopics.push('gringa');
 
   const hiringIndicators = [
-    'vaga', 'vagas', 'preciso de', 'procuro', 'procurando', 'busco', 'buscando',
-    'contratando', 'contrata-se', 'contrata', 'oportunidade', 'estamos com vaga',
-    'abrindo vaga', 'abrimos vaga', 'enviar portfólio', 'envie seu portfólio',
-    'mande seu portfólio', 'mandem portfólio', 'deixe seu portfólio', 'indicação de',
-    'alguém indica', 'alguem indica', 'time de marketing', 'para agência',
+    'vaga', 'vagas', 'preciso de', 'preciso', 'procuro', 'procurando', 'procura', 'procura-se',
+    'busco', 'buscando', 'buscamos', 'contratando', 'contrata-se', 'contrata', 'contrato', 'contratamos',
+    'oportunidade', 'oportunidades', 'estamos com vaga', 'abrindo vaga', 'abrimos vaga',
+    'enviar portfólio', 'envie seu portfólio', 'mande seu portfólio', 'mandem portfólio', 'deixe seu portfólio',
+    'indicação de', 'alguém indica', 'alguem indica', 'time de marketing', 'para agência',
     'remuneração', 'salário', 'salario', 'pagando', 'quer um novo talento',
     'envie seu currículo', 'enviar currículo', 'mandar curriculo', 'mande seu currículo',
     'processo seletivo', 'carteira assinada', 'vale-transporte', 'vale transporte',
@@ -754,13 +777,14 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
     'estou procurando vaga', 'estou procurando emprego', 'perdeu o emprego hoje',
     'me indiquem vagas', 'alguém sabe onde está tendo vaga', 'alguem sabe onde esta tendo vaga',
     'onde está tendo vaga', 'precisando de um emprego', 'oq tem de errado no meu currículo',
+    'alguém sabe de alguma vaga', 'alguem sabe de alguma vaga', 'sabe de alguma vaga', 'tenho experiência em', 'tenho experiencia em',
     'não recebo uma ligação', 'fui criticada porque', 'fui criticado porque',
     'open for commissions', 'commissions open', 'available for freelance',
     'available for work', 'hire me', 'i am a graphic designer', "i'm a graphic designer",
     'my portfolio', 'dm me for rates', 'looking for clients'
   ];
 
-  const explicitJobOpeningRegex = /\b(vaga|vagas|contratando|contrata-se|contrata|oportunidade\s+de\s+emprego|processo\s+seletivo|envie\s+seu\s+curr[íi]culo|enviar\s+curr[íi]culo|mandar\s+curriculo|mande\s+seu\s+curr[íi]culo|venha\s+fazer\s+parte\s+do\s+time|preciso\s+de\s+designer|procuro\s+designer|estamos\s+com\s+vaga|abrimos\s+vaga|hiring|looking\s+for\s+a|job\s+opening|se\s+busca)\b/i;
+  const explicitJobOpeningRegex = /\b(vaga|vagas|contratando|contrata-se|contrata|contrato|contratamos|procura-se|procura|procuro|procurando|procuramos|preciso\s+de|precisa-se|precisando(\s+de)?|busco|buscando|buscamos|seleciona|selecionamos|processo\s+seletivo|oportunidade|oportunidades|envie\s+seu\s+curr[íi]culo|enviar\s+curr[íi]culo|mandar\s+curriculo|mande\s+seu\s+curr[íi]culo|envie\s+seu\s+portf[óo]lio|enviar\s+portf[óo]lio|mande\s+seu\s+portf[óo]lio|mandem\s+portf[óo]lio|deixe\s+seu\s+portf[óo]lio|venha\s+fazer\s+parte|abrimos\s+vaga|estamos\s+com\s+vaga|hiring|we\s+are\s+hiring|we're\s+hiring|looking\s+for|open\s+role|job\s+opening|se\s+busca)\b/i;
 
   const hasHiringSignal =
     explicitJobOpeningRegex.test(text) &&
@@ -1024,9 +1048,11 @@ async function runBackgroundCrawler() {
   let newJobsCount = 0;
 
   try {
-    // 1. Busca termos de busca em lotes espaçados para não sobrecarregar
+    // 1. Busca termos de busca em lotes espaçados (priorizando recentes de hoje/ontem)
     for (const q of allQueries) {
-      const posts = await fetchThreadsQuery(q, 'default');
+      const recentPosts = await fetchThreadsQuery(q, 'recent');
+      const defaultPosts = await fetchThreadsQuery(q, 'default');
+      const posts = [...recentPosts, ...defaultPosts];
       for (const raw of posts) {
         if (raw.code && !globalJobsStore.has(raw.code)) {
           const classified = analyzeAndClassifyPost(raw, { nearBelfordRoxo: true });
@@ -1353,6 +1379,12 @@ app.post('/api/search', async (req, res) => {
         
         // Bloqueio de cargos operacionais puros que nao sao design
         const operationalBlockRegex = /\b(operador\s+de\s+caixa|atendente\s+de\s+caixa|frente\s+de\s+caixa|operador\s+de\s+loja|repositor|empacotador|balconista|aougueiro|padeiro|chapeiro|cozinheiro|gar[çc]om|auxiliar\s+de\s+limpeza|asg|auxiliar\s+de\s+servi[çc]os\s+gerais|porteiro|vigilante|motorista|operador\s+de\s+telemarketing|telemarketing|call\s+center|operador\s+de\s+telecobran[çc]a|almoxarife|auxiliar\s+de\s+almoxarifado)\b/i;
+
+        // Se for candidato pedindo emprego ("alguém sabe de vaga", "procuro emprego", etc), nunca é vaga de contratação
+        const candidateSearchRegex = /\b(algu[ée]m\s+sabe\s+(?:de\s+)?(?:alguma\s+)?vaga|estou\s+procurando\s+(?:vaga|emprego)|procuro\s+(?:vaga|emprego)|busco\s+(?:vaga|emprego)|tenho\s+experi[êe]ncia\s+em|me\s+indiquem\s+vagas)\b/i;
+        if (candidateSearchRegex.test(text)) {
+          return false;
+        }
 
         if (operationalBlockRegex.test(text)) {
           // Se o post cita cargos operacionais e o inicio/titulo nao e explicitamente sobre design, bloqueia!

@@ -443,7 +443,7 @@ function renderJobs() {
             <!-- Linha 1: Ações Principais de Contato / Abertura -->
             <div class="actions-primary-row">
               ${waInfo ? `
-                <a href="https://wa.me/${waInfo.cleanDigits}?text=" + encodeURIComponent("Olá! Vi o anúncio da vaga no " + (job.platformLabel || "Threads") + " e gostaria de me candidatar.")"
+                <a href="https://wa.me/${waInfo.cleanDigits}?text=${encodeURIComponent('Olá! Vi o anúncio da vaga no ' + (job.platformLabel || 'Threads') + ' e gostaria de me candidatar.')}"
                    target="_blank"
                    rel="noopener noreferrer"
                    class="btn-whatsapp"
