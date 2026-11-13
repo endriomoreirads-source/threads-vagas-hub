@@ -6,6 +6,8 @@ const state = {
   dismissedJobsMap: new Map(), // Vagas excluídas pelo usuário
   activeTopic: 'todos', // mantido para compatibilidade
   selectedTopics: new Set(), // Conjunto de tópicos ativos para multi-seleção
+  selectedPlatforms: new Set(['threads', 'linkedin', 'facebook', 'indeed', 'google']),
+  modalityFilter: 'all',
   activeTab: 'all', // 'all' | 'rj_quick' | 'saved' | 'dismissed'
   quickSearch: '',
   sortBy: 'recent',
@@ -383,6 +385,9 @@ function renderJobs() {
           </div>
 
           <div class="header-badges">
+            <span class="platform-pill ${escapeHtml(job.platform || 'threads')}" title="Origem: ${escapeHtml(job.platformLabel || 'Threads')}">
+              ${job.platformIcon || '🧵'} ${escapeHtml(job.platformLabel || 'Threads')}
+            </span>
             <div class="trust-pill trust-${escapeHtml(ver.trustLevel)}" title="Índice de Veracidade da Vaga">
               ${escapeHtml(ver.trustBadge)} (${ver.authenticityScore}%)
             </div>
@@ -422,7 +427,7 @@ function renderJobs() {
             <!-- Linha 1: Ações Principais de Contato / Abertura -->
             <div class="actions-primary-row">
               ${waInfo ? `
-                <a href="https://wa.me/${waInfo.cleanDigits}?text=${encodeURIComponent('Olá! Vi o anúncio da vaga no Threads e gostaria de me candidatar.')}"
+                <a href="https://wa.me/${waInfo.cleanDigits}?text=" + encodeURIComponent("Olá! Vi o anúncio da vaga no " + (job.platformLabel || "Threads") + " e gostaria de me candidatar.")"
                    target="_blank"
                    rel="noopener noreferrer"
                    class="btn-whatsapp"
@@ -434,7 +439,7 @@ function renderJobs() {
                 </a>
               ` : ''}
               <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn-open-threads ${!waInfo ? 'btn-open-threads-full' : ''}">
-                Abrir no Threads ↗
+                Abrir no ${escapeHtml(job.platformLabel || 'Threads')} ↗
               </a>
             </div>
 
@@ -552,6 +557,8 @@ async function performSearch(forceRefresh = false) {
   const payload = {
     topic: state.selectedTopics.size === 0 ? 'todos' : Array.from(state.selectedTopics)[0],
     topics: Array.from(state.selectedTopics),
+    platforms: Array.from(state.selectedPlatforms),
+    modalityFilter: state.modalityFilter,
     remoto: document.getElementById('filterRemoto').checked,
     freelance: document.getElementById('filterFreelance').checked,
     fixo: document.getElementById('filterFixo').checked,
@@ -656,6 +663,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropDesign = document.getElementById('dropdownDesign');
     if (dropDesign) dropDesign.classList.toggle('active-parent', designCount > 0);
 
+    // Atualiza checkboxes e badge de Plataformas
+    const PLATFORM_LIST = ['threads', 'linkedin', 'facebook', 'indeed', 'google'];
+    const badgePlatforms = document.getElementById('badgePlatformsCount');
+    const dropPlatforms = document.getElementById('dropdownPlatforms');
+    let platCount = 0;
+
+    document.querySelectorAll('.platform-checkbox').forEach(cb => {
+      const isChecked = state.selectedPlatforms.has(cb.value);
+      cb.checked = isChecked;
+      cb.closest('.dropdown-check-item')?.classList.toggle('selected', isChecked);
+      if (isChecked) platCount++;
+    });
+
+    if (badgePlatforms) {
+      if (platCount === PLATFORM_LIST.length) {
+        badgePlatforms.textContent = 'Todas (5)';
+        dropPlatforms?.classList.remove('active-parent');
+      } else if (platCount === 0) {
+        badgePlatforms.textContent = 'Nenhuma';
+        dropPlatforms?.classList.add('active-parent');
+      } else {
+        badgePlatforms.textContent = `${platCount} ativas`;
+        dropPlatforms?.classList.add('active-parent');
+      }
+    }
+
     // Atualiza texto explicativo 'Visualizando:'
     const labelEl = document.getElementById('currentTopicLabel');
     if (labelEl) {
@@ -705,10 +738,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target !== cb) {
         cb.checked = !cb.checked;
       }
-      if (cb.checked) {
-        state.selectedTopics.add(cb.value);
+      if (cb.classList.contains('platform-checkbox')) {
+        if (cb.checked) {
+          state.selectedPlatforms.add(cb.value);
+        } else {
+          state.selectedPlatforms.delete(cb.value);
+        }
       } else {
-        state.selectedTopics.delete(cb.value);
+        if (cb.checked) {
+          state.selectedTopics.add(cb.value);
+        } else {
+          state.selectedTopics.delete(cb.value);
+        }
       }
       syncToolbarUI();
     });
@@ -754,6 +795,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Botões de Selecionar Todas e Limpar Plataformas
+  const PLATFORM_LIST = ['threads', 'linkedin', 'facebook', 'indeed', 'google'];
+  const btnSelectAllPlatforms = document.getElementById('btnSelectAllPlatforms');
+  if (btnSelectAllPlatforms) {
+    btnSelectAllPlatforms.addEventListener('click', (e) => {
+      e.stopPropagation();
+      PLATFORM_LIST.forEach(p => state.selectedPlatforms.add(p));
+      syncToolbarUI();
+    });
+  }
+
+  const btnClearPlatforms = document.getElementById('btnClearPlatforms');
+  if (btnClearPlatforms) {
+    btnClearPlatforms.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.selectedPlatforms.clear();
+      syncToolbarUI();
+    });
+  }
+
   // Controle inteligente de Bottom Sheet / Dropdown
   const sheetBackdrop = document.getElementById('sheetBackdrop');
 
@@ -772,8 +833,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isAlreadyOpen) {
       dropdown.classList.add('open');
       trigger.setAttribute('aria-expanded', 'true');
-      if (sheetBackdrop) sheetBackdrop.classList.add('active');
-      document.body.classList.add('sheet-open');
+      if (sheetBackdrop && window.innerWidth <= 768) {
+        sheetBackdrop.classList.add('active');
+        document.body.classList.add('sheet-open');
+      }
     }
   };
 
@@ -790,9 +853,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupDropdown('dropdownClt', 'btnTriggerClt');
   setupDropdown('dropdownDesign', 'btnTriggerDesign');
+  setupDropdown('dropdownPlatforms', 'btnTriggerPlatforms');
 
   // Botões de Fechar e Concluir nos menus
-  ['btnCloseClt', 'btnApplyClt', 'btnCloseDesign', 'btnApplyDesign'].forEach(id => {
+  ['btnCloseClt', 'btnApplyClt', 'btnCloseDesign', 'btnApplyDesign', 'btnClosePlatforms', 'btnApplyPlatforms'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
       btn.addEventListener('click', (e) => {
@@ -812,6 +876,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!e.target.closest('.topic-dropdown') && !e.target.closest('.topic-dropdown-menu')) {
       closeAllDropdowns();
     }
+  });
+
+  // Listener do controle de Modalidade de Trabalho (Com filtro estrito para Remoto)
+  document.querySelectorAll('input[name="modality_filter"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      state.modalityFilter = e.target.value;
+      document.querySelectorAll('.modality-option').forEach(opt => opt.classList.remove('active'));
+      e.target.closest('.modality-option')?.classList.add('active');
+      const hint = document.getElementById('modalityHint');
+      if (hint) {
+        if (state.modalityFilter === 'remote_only') {
+          hint.textContent = 'Filtro estrito ativado: Ocultando 100% de vagas híbridas e presenciais.';
+        } else if (state.modalityFilter === 'hybrid_only') {
+          hint.textContent = 'Exibindo apenas vagas em formato híbrido.';
+        } else if (state.modalityFilter === 'in_person_only') {
+          hint.textContent = 'Exibindo apenas vagas presenciais.';
+        } else {
+          hint.textContent = 'Exibindo vagas remotas, híbridas e presenciais.';
+        }
+      }
+      performSearch(false);
+    });
   });
 
   // Toggle do painel de filtros no celular/mobile

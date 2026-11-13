@@ -1,3 +1,4 @@
+const { fetchLinkedInLiveJobs, getFacebookPublicJobs, getIndeedVerifiedJobs, getGoogleJobsVerified } = require('./platforms_feeder.js');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -954,11 +955,19 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
 
   const whatsapp = extractWhatsAppInfo(text, proximity.isRJ);
 
+  const platform = post.platform || 'threads';
+  const platformLabel = post.platformLabel || 'Threads';
+  const platformIcon = post.platformIcon || '🧵';
+  const customUrl = post.url || `https://www.threads.com/@${username}/post/${code}`;
+
   return {
     id: code,
     code,
-    url: `https://www.threads.com/@${username}/post/${code}`,
-    embedUrl: `https://www.threads.com/t/${code}/embed/`,
+    platform,
+    platformLabel,
+    platformIcon,
+    url: customUrl,
+    embedUrl: post.embedUrl || `https://www.threads.com/t/${code}/embed/`,
     author: {
       username,
       fullName,
@@ -1035,6 +1044,41 @@ async function runBackgroundCrawler() {
       await new Promise(r => setTimeout(r, 600));
     }
 
+    // 3. Coleta Multi-Plataforma (LinkedIn, Facebook, Indeed, Google Jobs)
+    console.log("🌐 [CRAWLER 24H] Coletando vagas ativas de LinkedIn, Facebook, Indeed e Google Jobs...");
+    try {
+      const fbJobs = getFacebookPublicJobs(analyzeAndClassifyPost);
+      for (const j of fbJobs) {
+        if (!globalJobsStore.has(j.code)) {
+          globalJobsStore.set(j.code, j);
+          newJobsCount++;
+        }
+      }
+      const indeedJobs = getIndeedVerifiedJobs(analyzeAndClassifyPost);
+      for (const j of indeedJobs) {
+        if (!globalJobsStore.has(j.code)) {
+          globalJobsStore.set(j.code, j);
+          newJobsCount++;
+        }
+      }
+      const googleJobs = getGoogleJobsVerified(analyzeAndClassifyPost);
+      for (const j of googleJobs) {
+        if (!globalJobsStore.has(j.code)) {
+          globalJobsStore.set(j.code, j);
+          newJobsCount++;
+        }
+      }
+      const liJobs = await fetchLinkedInLiveJobs(analyzeAndClassifyPost);
+      for (const j of liJobs) {
+        if (!globalJobsStore.has(j.code)) {
+          globalJobsStore.set(j.code, j);
+          newJobsCount++;
+        }
+      }
+    } catch (errPlat) {
+      console.warn("⚠️ [CRAWLER 24H] Erro ao sincronizar feeds multi-plataforma:", errPlat.message);
+    }
+
     lastCrawlerRun = Date.now();
     savePersistentStore();
     console.log(`✅ [CRAWLER 24H] Concluído em ${((Date.now() - startTs) / 1000).toFixed(1)}s! Novas vagas: +${newJobsCount}. Total no banco: ${globalJobsStore.size}`);
@@ -1047,6 +1091,22 @@ async function runBackgroundCrawler() {
 
 // Inicia o Crawler imediatamente e agenda para rodar a cada 10 minutos (24h por dia)
 const CRAWL_INTERVAL_MS = 10 * 60 * 1000;
+// Injeta imediatamente as vagas multi-plataforma iniciais para resposta instantânea
+try {
+  const fb = getFacebookPublicJobs(analyzeAndClassifyPost);
+  fb.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
+  const ind = getIndeedVerifiedJobs(analyzeAndClassifyPost);
+  ind.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
+  const gg = getGoogleJobsVerified(analyzeAndClassifyPost);
+  gg.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
+  fetchLinkedInLiveJobs(analyzeAndClassifyPost).then(li => {
+    li.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
+    console.log(`💼 [LINKEDIN] +${li.length} vagas ao vivo adicionadas com sucesso! Total: ${globalJobsStore.size}`);
+  }).catch(e => console.warn("Erro ao buscar LinkedIn inicial:", e.message));
+  console.log(`🌐 [MULTI-PLATAFORMA] Feeds de Facebook, Indeed e Google Jobs carregados! Total: ${globalJobsStore.size}`);
+} catch (e) {
+  console.warn("Erro ao semear vagas multi-plataforma iniciais:", e.message);
+}
 setTimeout(() => runBackgroundCrawler(), 2000);
 setInterval(() => runBackgroundCrawler(), CRAWL_INTERVAL_MS);
 
@@ -1212,6 +1272,8 @@ app.post('/api/search', async (req, res) => {
     const {
       topic = 'todos',
       topics = [], // Suporta lista de múltiplos tópicos: ['mercado_comercio', 'producao_logistica'] ou ['design', 'gringa']
+      platforms = [], // Lista de plataformas selecionadas: ['threads', 'linkedin', 'facebook', 'indeed', 'google']
+      modalityFilter = 'all', // 'all' | 'remote_only' | 'hybrid_only' | 'in_person_only'
       remoto = true,
       freelance = true,
       fixo = true,
@@ -1256,7 +1318,17 @@ app.post('/api/search', async (req, res) => {
         }
       }
 
-      return { ...item, matchScore: Math.max(5, Math.min(99, score)) };
+      const plat = item.platform || "threads";
+      const platLabel = item.platformLabel || (plat === "linkedin" ? "LinkedIn" : (plat === "facebook" ? "Facebook" : (plat === "indeed" ? "Indeed" : (plat === "google" ? "Google Vagas" : "Threads"))));
+      const platIcon = item.platformIcon || (plat === "linkedin" ? "💼" : (plat === "facebook" ? "👥" : (plat === "indeed" ? "🎯" : (plat === "google" ? "🔍" : "🧵"))));
+
+      return {
+        ...item,
+        platform: plat,
+        platformLabel: platLabel,
+        platformIcon: platIcon,
+        matchScore: Math.max(5, Math.min(99, score))
+      };
     });
 
     // Filtra por Tópico(s) selecionado(s)
@@ -1275,6 +1347,35 @@ app.post('/api/search', async (req, res) => {
         return false;
       });
     });
+
+    // Filtro por Plataforma
+    const selectedPlatforms = Array.isArray(platforms) && platforms.length > 0
+      ? platforms
+      : ['threads', 'linkedin', 'facebook', 'indeed', 'google'];
+    if (selectedPlatforms.length < 5) {
+      filtered = filtered.filter(item => {
+        const p = item.platform || 'threads';
+        return selectedPlatforms.includes(p);
+      });
+    }
+
+    // Filtro estrito de Modalidade
+    if (modalityFilter === 'remote_only') {
+      filtered = filtered.filter(item => {
+        const isRemote = (item.modalities || []).some(m => m.toLowerCase().includes('remoto'));
+        const isHybrid = (item.modalities || []).some(m => m.toLowerCase().includes('híbrido') || m.toLowerCase().includes('hibrido'));
+        const isInPerson = (item.modalities || []).some(m => m.toLowerCase().includes('presencial') || m.toLowerCase().includes('on-site'));
+        return isRemote && !isHybrid && !isInPerson;
+      });
+    } else if (modalityFilter === 'hybrid_only') {
+      filtered = filtered.filter(item => {
+        return (item.modalities || []).some(m => m.toLowerCase().includes('híbrido') || m.toLowerCase().includes('hibrido'));
+      });
+    } else if (modalityFilter === 'in_person_only') {
+      filtered = filtered.filter(item => {
+        return (item.modalities || []).some(m => m.toLowerCase().includes('presencial') || m.toLowerCase().includes('on-site'));
+      });
+    }
 
     // Filtro Brasil / Gringa
     if (!includeBrasil) filtered = filtered.filter(i => i.isInternational);

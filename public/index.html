@@ -196,6 +196,97 @@
           </div>
         </div>
 
+        <!-- Dropdown 3: PLATAFORMAS (MULTI-SELEÇÃO COM "SELECIONAR TODAS") -->
+        <div class="topic-dropdown" id="dropdownPlatforms">
+          <button type="button" class="topic-dropdown-trigger" id="btnTriggerPlatforms" aria-expanded="false">
+            <span class="trigger-icon">🌐</span>
+            <span class="trigger-label">Plataformas</span>
+            <span class="selection-pill" id="badgePlatformsCount">Todas (5)</span>
+            <span class="trigger-arrow">▾</span>
+          </button>
+          
+          <div class="topic-dropdown-menu" id="menuPlatforms">
+            <div class="sheet-drag-handle"></div>
+
+            <div class="sheet-header">
+              <div class="sheet-title-box">
+                <h3>🌐 Plataformas & Redes</h3>
+                <small>Escolha de quais portais e grupos você quer ver vagas</small>
+              </div>
+              <button type="button" class="btn-close-sheet" id="btnClosePlatforms" aria-label="Fechar">✕</button>
+            </div>
+
+            <div class="dropdown-top-actions">
+              <button type="button" class="btn-select-all" id="btnSelectAllPlatforms">
+                ✓ Selecionar Todas
+              </button>
+              <button type="button" class="btn-clear-cluster" id="btnClearPlatforms">
+                Limpar
+              </button>
+            </div>
+
+            <div class="dropdown-divider"></div>
+
+            <div class="dropdown-check-list">
+              <label class="dropdown-check-item selected" for="cb_plat_threads">
+                <input type="checkbox" id="cb_plat_threads" class="platform-checkbox" value="threads" checked />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🧵</span>
+                <div class="item-info">
+                  <strong>Threads</strong>
+                  <small>Radar 24h contínuo de posts de criadores e RH</small>
+                </div>
+              </label>
+
+              <label class="dropdown-check-item selected" for="cb_plat_linkedin">
+                <input type="checkbox" id="cb_plat_linkedin" class="platform-checkbox" value="linkedin" checked />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">💼</span>
+                <div class="item-info">
+                  <strong>LinkedIn</strong>
+                  <small>Vagas corporativas verificadas com link direto</small>
+                </div>
+              </label>
+
+              <label class="dropdown-check-item selected" for="cb_plat_facebook">
+                <input type="checkbox" id="cb_plat_facebook" class="platform-checkbox" value="facebook" checked />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">👥</span>
+                <div class="item-info">
+                  <strong>Facebook (Grupos Públicos)</strong>
+                  <small>Grupos de vagas do RJ, Baixada e Design</small>
+                </div>
+              </label>
+
+              <label class="dropdown-check-item selected" for="cb_plat_indeed">
+                <input type="checkbox" id="cb_plat_indeed" class="platform-checkbox" value="indeed" checked />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🎯</span>
+                <div class="item-info">
+                  <strong>Indeed</strong>
+                  <small>Vagas de empregadores com candidatura oficial</small>
+                </div>
+              </label>
+
+              <label class="dropdown-check-item selected" for="cb_plat_google">
+                <input type="checkbox" id="cb_plat_google" class="platform-checkbox" value="google" checked />
+                <span class="check-box-ui"></span>
+                <span class="item-icon">🔍</span>
+                <div class="item-info">
+                  <strong>Google Vagas (Google Jobs)</strong>
+                  <small>Oportunidades indexadas no buscador do Google</small>
+                </div>
+              </label>
+            </div>
+
+            <div class="sheet-footer">
+              <button type="button" class="btn-sheet-apply" id="btnApplyPlatforms">
+                Concluir Seleção ✓
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Indicador do tópico selecionado ativo -->
         <div class="current-topic-badge" id="currentTopicDisplay">
           <span>Visualizando:</span>
@@ -245,6 +336,30 @@
                 </span>
               </label>
             </div>
+          </div>
+
+          <!-- NOVO CATÁLOGO: MODALIDADE DE TRABALHO (COM FILTRO ESTRITO REMOTO) -->
+          <div class="filter-group">
+            <label class="group-label">🏡 Modalidade de Atuação</label>
+            <div class="modality-segmented-control" id="modalityControl">
+              <label class="modality-option active" for="modality_all">
+                <input type="radio" name="modality_filter" id="modality_all" value="all" checked />
+                <span>🌐 Todas as Modalidades</span>
+              </label>
+              <label class="modality-option" for="modality_remote_only">
+                <input type="radio" name="modality_filter" id="modality_remote_only" value="remote_only" />
+                <span>🟢 Apenas 100% Remoto (Home Office)</span>
+              </label>
+              <label class="modality-option" for="modality_hybrid_only">
+                <input type="radio" name="modality_filter" id="modality_hybrid_only" value="hybrid_only" />
+                <span>🟡 Apenas Híbrido</span>
+              </label>
+              <label class="modality-option" for="modality_in_person_only">
+                <input type="radio" name="modality_filter" id="modality_in_person_only" value="in_person_only" />
+                <span>🏢 Apenas Presencial</span>
+              </label>
+            </div>
+            <small class="modality-hint" id="modalityHint">Exibindo vagas remotas, híbridas e presenciais.</small>
           </div>
 
           <!-- Regime de Contratação -->
