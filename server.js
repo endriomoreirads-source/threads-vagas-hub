@@ -1479,7 +1479,7 @@ app.post('/api/search', async (req, res) => {
         const text = (item.text || '').toLowerCase();
         
         // Bloqueio de termos que NÃO são design gráfico de tecnologia/comunicação
-        const nonGraphicDesignBlock = /\b(nail\s+designer|lash\s+designer|sobrancelha|alongamento\s+de\s+unha|manicure|pedicure|duplex|cobertura\s+[aà]\s+venda|imobili[aá]ria|corretor\s+de\s+im[oó]veis|psic[oó]log|cl[ií]nica\s+de\s+psicologia|noivas?\s+e\s+noivos?|para\s+noivas?|abri\s+[123]\s+vagas?|algum\s+empreendedor)\b/i;
+        const nonGraphicDesignBlock = /\b(nail\s+designer|lash\s+designer|sobrancelha|alongamento\s+de\s+unha|manicure|pedicure|duplex|cobertura\s+[aà]\s+venda|imobili[aá]ria|corretor\s+de\s+im[oó]veis|psic[oó]log|cl[ií]nica\s+de\s+psicologia|noivas?\s+e\s+noivos?|para\s+noivas?|abri\s+[123]\s+vagas?|algum\s+empreendedor|para\s+portf[oó]lio|pra\s+portf[oó]lio|montar\s+(?:meu\s+)?portf[oó]lio)\b/i;
         if (nonGraphicDesignBlock.test(text)) return false;
 
         // Bloqueio de cargos operacionais puros que nao sao design
