@@ -1,4 +1,5 @@
-const { fetchLinkedInLiveJobs, getFacebookPublicJobs, getIndeedVerifiedJobs, getGoogleJobsVerified } = require('./platforms_feeder.js');
+const { fetchLinkedInLiveJobs, getFacebookPublicJobs, getIndeedVerifiedJobs, getGoogleJobsVerified, getAITechVerifiedJobs } = require('./platforms_feeder.js');
+const { extractTextFromImageUrl, FLYER_HIRING_REGEX } = require('./ocr_engine.js');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -321,24 +322,36 @@ function savePersistentStore() {
 
 loadPersistentStore();
 
-// Queries comprovadas que retornam SSR no Threads
+// Queries de alta produtividade comprovadas no Threads (trazem posts recentes em tempo real de hoje)
 const QUERIES_DESIGN_BR = [
-  'procura designer',
-  'procura-se designer',
-  'contrato designer',
-  'contrata designer',
-  'vaga designer grafico',
+  'designer',
+  'designers',
   'vaga designer',
-  'preciso de designer',
   'procuro designer',
   'contratando designer',
   'freela designer',
-  'oportunidade designer grafico',
-  'vaga social media designer',
-  'designer remoto vaga',
-  'designer fixo agencia',
-  'vaga direcao de arte',
-  'vaga identidade visual'
+  'identidade visual',
+  'ui ux',
+  'diretor de arte',
+  'motion',
+  'design grafico',
+  'social media designer',
+  'procuro',
+  'contratando',
+  'oportunidade'
+];
+
+const QUERIES_AI_BUILDER = [
+  'ai engineer',
+  'engenheiro de ia',
+  'prompt engineer',
+  'treinador de ia',
+  'ai trainer',
+  'desenvolvedor ia',
+  'criador de apps',
+  'antigravity',
+  'ai builder',
+  'inteligencia artificial'
 ];
 
 const QUERIES_DESIGN_INTL = [
@@ -447,18 +460,25 @@ function getThreadsHeaders() {
   };
 }
 
+function extractImageUrl(obj) {
+  if (obj.image_versions2?.candidates?.[0]?.url) return obj.image_versions2.candidates[0].url;
+  if (obj.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url) return obj.carousel_media[0].image_versions2.candidates[0].url;
+  return null;
+}
+
 function extractPostsFromJSON(obj, found = []) {
   if (!obj || typeof obj !== 'object') return found;
 
-  if (
-    typeof obj.code === 'string' &&
-    obj.caption &&
-    typeof obj.caption.text === 'string' &&
-    obj.caption.text.trim().length > 0 &&
-    obj.user &&
-    typeof obj.user.username === 'string'
-  ) {
-    found.push(obj);
+  const username = obj.user?.username || obj.owner?.username || obj.caption?.user?.username;
+  if (typeof obj.code === 'string' && username) {
+    const text = obj.caption?.text || '';
+    const imgUrl = extractImageUrl(obj);
+    // Preserva o post se tiver texto OU se tiver imagem de anúncio/flyer
+    if (text.trim().length > 0 || imgUrl) {
+      obj.extractedImageUrl = imgUrl;
+      obj.extractedUsername = username;
+      found.push(obj);
+    }
   }
 
   if (Array.isArray(obj)) {
@@ -708,17 +728,24 @@ function evaluateJobAuthenticity({
 }
 
 function analyzeAndClassifyPost(post, activeFilters = {}) {
-  const text = (post.caption?.text || '').trim();
+  const rawCaption = (post.caption?.text || post.text || '').trim();
+  const ocrText = (post.ocrText || '').trim();
+  // Se tiver texto extraído de OCR do flyer/imagem, junta para análise sem perder contexto
+  const text = ocrText ? `${rawCaption} ${ocrText}`.trim() : rawCaption;
   const lower = text.toLowerCase();
-  const username = post.user?.username || 'desconhecido';
-  const fullName = post.user?.full_name || username;
-  const avatarUrl = post.user?.profile_pic_url || '';
-  const code = post.code;
-  const takenAt = post.taken_at || Math.floor(Date.now() / 1000);
-  const likeCount = post.like_count || 0;
+  const username = post.extractedUsername || post.user?.username || post.author?.username || 'desconhecido';
+  const fullName = post.user?.full_name || post.author?.fullName || username;
+  const avatarUrl = post.user?.profile_pic_url || post.author?.avatarUrl || '';
+  const code = post.code || post.id;
+  const takenAt = post.taken_at || post.takenAt || Math.floor(Date.now() / 1000);
+  const likeCount = post.like_count || post.likeCount || 0;
+  const imageUrl = post.extractedImageUrl || post.imageUrl || null;
 
   const designRegex = /\b(designer|design\s+gr[aá]fico|graphic\s+designer|graphic\s+design|brand\s+designer|visual\s+designer|dise[ñn]ador|dise[ñn]o\s+gr[aá]fico|identidade\s+visual|social\s+media|carrossel|carross[eé]is|carousel|criativos|photoshop|illustrator|figma|motion|diretor\s+de\s+arte|dire[cç][aã]o\s+de\s+arte|art\s+director|diagrama[cç][aã]o|branding|ui\/ux|web\s+designer|landing\s+page|capista|thumbnail|logo\s+design)\b/i;
   const hasDesignContext = designRegex.test(text);
+
+  const aiRegex = /\b(ai\s+engineer|engenheiro\s+de\s+ia|ai\s+builder|desenvolvedor\s+ia|prompt\s+engineer|treinador\s+de\s+ia|ai\s+trainer|intelig[eê]ncia\s+artificial|antigravity|llm|agente\s+de\s+ia|automa[çc][aã]o\s+com\s+ia|criador\s+de\s+aplicativos|criador\s+de\s+apps|low[-\s]?code|no[-\s]?code)\b/i;
+  const hasAITechContext = aiRegex.test(text) || Boolean(post.isAITech);
 
   const cltGeneralRegex = /\b(vaga|vagas|estamos\s+contratando|contrata-se|contrata|oportunidade\s+de\s+emprego|processo\s+seletivo|curr[íi]culo|curriculo|clt|carteira\s+assinada|auxiliar|assistente|atendente|recepcionista|operador|repositor|mercado|supermercado|produ[çc][ãa]o|log[íi]stica|expedi[çc][ãa]o|almoxarifado|almoxarife|escrit[óo]rio|administrativo|servi[çc]os\s+gerais|asg|vendedor|balconista|caixa|estoque|estoquista|motorista|porteiro|portaria|vigilante|cozinheiro|merendeira|aprendiz|est[áa]gio|rh\b|recursos\s+humanos)\b/i;
   const hasGeneralJobContext = cltGeneralRegex.test(text);
@@ -727,6 +754,7 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
 
   const jobTopics = [];
   if (hasDesignContext) jobTopics.push('design');
+  if (hasAITechContext) jobTopics.push('ai_tech');
   if (proximity.isRJ) jobTopics.push('rj_clt');
   if (/\b(mercado|supermercado|atacad[ãa]o|assa[íi]|guanabara|mundial|prezunic|rede\s+economia|vendedor|loja|shopping|atendente|operador\s+de\s+caixa|caixa|repositor|balconista|empacotador|padaria|lanchonete|cafeteria|burger|restaurante|farm[áa]cia)\b/i.test(text)) {
     jobTopics.push('mercado_comercio');
@@ -779,6 +807,12 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
     'onde está tendo vaga', 'precisando de um emprego', 'oq tem de errado no meu currículo',
     'alguém sabe de alguma vaga', 'alguem sabe de alguma vaga', 'sabe de alguma vaga', 'tenho experiência em', 'tenho experiencia em',
     'não recebo uma ligação', 'fui criticada porque', 'fui criticado porque',
+    'já tem quase um mês', 'ja tem quase um mes', 'mais de 3 que não faço nada', 'mais de 3 que nao faco nada',
+    'não fecho nem um serviço', 'nao fecho nem um servico', 'desabafo',
+    'nail designer', 'lash designer', 'sobrancelha', 'alongamento de unha', 'manicure',
+    'cobertura duplex', 'duplex à venda', 'duplex a venda', 'apartamento à venda', 'apartamento a venda',
+    'psicólogo', 'psicóloga', 'psicologo', 'psicologa', 'atendimento psicológico',
+    'noivas e noivos', 'para noivas', 'algum empreendedor', 'algum empresário', 'algum empresario', 'abri 2 vagas', 'abri 3 vagas', 'abri 1 vaga',
     'open for commissions', 'commissions open', 'available for freelance',
     'available for work', 'hire me', 'i am a graphic designer', "i'm a graphic designer",
     'my portfolio', 'dm me for rates', 'looking for clients'
@@ -787,8 +821,8 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
   const explicitJobOpeningRegex = /\b(vaga|vagas|contratando|contrata-se|contrata|contrato|contratamos|procura-se|procura|procuro|procurando|procuramos|preciso\s+de|precisa-se|precisando(\s+de)?|busco|buscando|buscamos|seleciona|selecionamos|processo\s+seletivo|oportunidade|oportunidades|envie\s+seu\s+curr[íi]culo|enviar\s+curr[íi]culo|mandar\s+curriculo|mande\s+seu\s+curr[íi]culo|envie\s+seu\s+portf[óo]lio|enviar\s+portf[óo]lio|mande\s+seu\s+portf[óo]lio|mandem\s+portf[óo]lio|deixe\s+seu\s+portf[óo]lio|venha\s+fazer\s+parte|abrimos\s+vaga|estamos\s+com\s+vaga|hiring|we\s+are\s+hiring|we're\s+hiring|looking\s+for|open\s+role|job\s+opening|se\s+busca)\b/i;
 
   const hasHiringSignal =
-    explicitJobOpeningRegex.test(text) &&
-    (hiringIndicators.some(kw => lower.includes(kw)) ||
+    (explicitJobOpeningRegex.test(text) || (ocrText && FLYER_HIRING_REGEX.test(ocrText))) &&
+    (hiringIndicators.some(kw => lower.includes(kw)) || (ocrText && FLYER_HIRING_REGEX.test(ocrText)) ||
       RJ_CURATOR_PROFILES.includes(username.toLowerCase()));
 
   const hasSelfPromoSignal = candidateOrSelfPromoIndicators.some(kw => lower.includes(kw));
@@ -1020,6 +1054,10 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
     isInternational,
     hasDesignContext,
     hasGeneralJobContext,
+    isAITech: Boolean(hasAITechContext),
+    hasImage: Boolean(imageUrl),
+    imageUrl,
+    ocrText: ocrText || null,
     jobTopics,
     proximity,
     whatsapp,
@@ -1044,7 +1082,7 @@ async function runBackgroundCrawler() {
   const startTs = Date.now();
   console.log(`\n🤖 [CRAWLER 24H] Iniciando rodada de captação contínua às ${new Date().toLocaleTimeString('pt-BR')}...`);
 
-  const allQueries = [...QUERIES_RJ_CLT, ...QUERIES_DESIGN_BR, ...QUERIES_DESIGN_INTL];
+  const allQueries = [...QUERIES_DESIGN_BR, ...QUERIES_AI_BUILDER, ...QUERIES_RJ_CLT, ...QUERIES_DESIGN_INTL];
   let newJobsCount = 0;
 
   try {
@@ -1054,12 +1092,32 @@ async function runBackgroundCrawler() {
       const defaultPosts = await fetchThreadsQuery(q, 'default');
       const posts = [...recentPosts, ...defaultPosts];
       for (const raw of posts) {
-        if (raw.code && !globalJobsStore.has(raw.code)) {
-          const classified = analyzeAndClassifyPost(raw, { nearBelfordRoxo: true });
-          if (classified.hasDesignContext || classified.hasGeneralJobContext) {
-            globalJobsStore.set(raw.code, classified);
-            newJobsCount++;
+        if (!raw.code) continue;
+
+        if (globalJobsStore.has(raw.code)) {
+          const existing = globalJobsStore.get(raw.code);
+          if (existing && !existing.imageUrl && raw.extractedImageUrl) {
+            existing.imageUrl = raw.extractedImageUrl;
+            existing.hasImage = true;
           }
+          continue;
+        }
+
+        // Se tem imagem e texto curto, processa OCR do flyer para não perder a vaga
+        if (raw.extractedImageUrl && (!raw.caption?.text || raw.caption.text.length < 80)) {
+          try {
+            const detected = await extractTextFromImageUrl(raw.extractedImageUrl);
+            if (detected && detected.length > 8) {
+              raw.ocrText = detected;
+              console.log(`👁️ [OCR Flyer] Texto lido de @${raw.extractedUsername || raw.code}: "${detected.slice(0, 50)}..."`);
+            }
+          } catch (_) {}
+        }
+
+        const classified = analyzeAndClassifyPost(raw, { nearBelfordRoxo: true });
+        if (classified.hasDesignContext || classified.hasGeneralJobContext || classified.isAITech) {
+          globalJobsStore.set(raw.code, classified);
+          newJobsCount++;
         }
       }
       // Pequena pausa respeitosa de 600ms entre requisições
@@ -1136,6 +1194,8 @@ try {
   ind.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
   const gg = getGoogleJobsVerified(analyzeAndClassifyPost);
   gg.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
+  const ai = getAITechVerifiedJobs(analyzeAndClassifyPost);
+  ai.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
   fetchLinkedInLiveJobs(analyzeAndClassifyPost).then(li => {
     li.forEach(j => { if (!globalJobsStore.has(j.code)) globalJobsStore.set(j.code, j); });
     console.log(`💼 [LINKEDIN] +${li.length} vagas ao vivo adicionadas com sucesso! Total: ${globalJobsStore.size}`);
@@ -1301,9 +1361,50 @@ app.get('/api/verify/:code', async (req, res) => {
   }
 });
 
-/**
- * Endpoint de busca: consulta diretamente o banco de dados persistente acumulado pelo robô 24h
- */
+// Leitura inteligente de imagens/flyers via OCR sob demanda
+app.post('/api/jobs/:code/ocr', async (req, res) => {
+  const { code } = req.params;
+  const job = globalJobsStore.get(code);
+  if (!job) {
+    return res.status(404).json({ success: false, error: 'Vaga não encontrada' });
+  }
+
+  if (job.ocrText) {
+    return res.json({ success: true, ocrText: job.ocrText, cached: true });
+  }
+
+  const imgUrl = job.imageUrl || job.extractedImageUrl;
+  if (!imgUrl) {
+    return res.status(400).json({ success: false, error: 'Esta publicação não possui imagem vinculada para leitura' });
+  }
+
+  try {
+    const detected = await extractTextFromImageUrl(imgUrl);
+    if (!detected || detected.length < 5) {
+      return res.json({ success: false, error: 'Nenhum texto nítido pôde ser identificado nesta imagem' });
+    }
+
+    job.ocrText = detected;
+    job.hasImage = true;
+    job.imageUrl = imgUrl;
+
+    // Reclassifica para refletir o texto lido da imagem
+    const reclassified = analyzeAndClassifyPost(job, { nearBelfordRoxo: true });
+    Object.assign(job, reclassified);
+    globalJobsStore.set(code, job);
+    savePersistentStore();
+
+    return res.json({
+      success: true,
+      ocrText: detected,
+      hasDesignContext: job.hasDesignContext,
+      isHiringPost: job.isHiringPost,
+      verification: job.verification
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 app.post('/api/search', async (req, res) => {
   try {
     const {
@@ -1377,11 +1478,15 @@ app.post('/api/search', async (req, res) => {
       const isRealDedicatedDesignJob = (item) => {
         const text = (item.text || '').toLowerCase();
         
+        // Bloqueio de termos que NÃO são design gráfico de tecnologia/comunicação
+        const nonGraphicDesignBlock = /\b(nail\s+designer|lash\s+designer|sobrancelha|alongamento\s+de\s+unha|manicure|pedicure|duplex|cobertura\s+[aà]\s+venda|imobili[aá]ria|corretor\s+de\s+im[oó]veis|psic[oó]log|cl[ií]nica\s+de\s+psicologia|noivas?\s+e\s+noivos?|para\s+noivas?|abri\s+[123]\s+vagas?|algum\s+empreendedor)\b/i;
+        if (nonGraphicDesignBlock.test(text)) return false;
+
         // Bloqueio de cargos operacionais puros que nao sao design
         const operationalBlockRegex = /\b(operador\s+de\s+caixa|atendente\s+de\s+caixa|frente\s+de\s+caixa|operador\s+de\s+loja|repositor|empacotador|balconista|aougueiro|padeiro|chapeiro|cozinheiro|gar[çc]om|auxiliar\s+de\s+limpeza|asg|auxiliar\s+de\s+servi[çc]os\s+gerais|porteiro|vigilante|motorista|operador\s+de\s+telemarketing|telemarketing|call\s+center|operador\s+de\s+telecobran[çc]a|almoxarife|auxiliar\s+de\s+almoxarifado)\b/i;
 
         // Se for candidato pedindo emprego ("alguém sabe de vaga", "procuro emprego", etc), nunca é vaga de contratação
-        const candidateSearchRegex = /\b(algu[ée]m\s+sabe\s+(?:de\s+)?(?:alguma\s+)?vaga|estou\s+procurando\s+(?:vaga|emprego)|procuro\s+(?:vaga|emprego)|busco\s+(?:vaga|emprego)|tenho\s+experi[êe]ncia\s+em|me\s+indiquem\s+vagas)\b/i;
+        const candidateSearchRegex = /\b(algu[ée]m\s+sabe\s+(?:de\s+)?(?:alguma\s+)?vaga|estou\s+procurando\s+(?:vaga|emprego)|procuro\s+(?:vaga|emprego)|busco\s+(?:vaga|emprego)|tenho\s+experi[êe]ncia\s+em|me\s+indiquem\s+vagas|j[aá]\s+tem\s+quase\s+um\s+m[êe]s\s+que\s+n[aã]o|n[aã]o\s+recebo\s+uma\s+liga[çc][aã]o)\b/i;
         if (candidateSearchRegex.test(text)) {
           return false;
         }
@@ -1403,6 +1508,7 @@ app.post('/api/search', async (req, res) => {
       return selectedTopicsList.some(t => {
         if (t === 'design') return isRealDedicatedDesignJob(item);
         if (t === 'gringa') return item.isInternational && isRealDedicatedDesignJob(item);
+        if (t === 'ai_tech') return item.isAITech || (item.jobTopics && item.jobTopics.includes('ai_tech'));
         if (t === 'rj_clt') return item.proximity?.isRJ || (item.hasGeneralJobContext && !item.isInternational);
         if (t === 'mercado_comercio') return item.jobTopics.includes('mercado_comercio') || /\b(caixa|operador|repositor|balconista|atendente|mercado)\b/i.test(item.text);
         if (t === 'producao_logistica') return item.jobTopics.includes('producao_logistica') || /\b(log[íi]stica|produ[çc][ãa]o|almoxarif|estoque|carga|f[áa]brica)\b/i.test(item.text);

@@ -348,6 +348,37 @@ function renderJobs() {
       ? `<span class="tag tag-proximity" title="${escapeHtml(job.proximity.zone)} (${escapeHtml(job.proximity.matchedPlace || 'RJ')})">${escapeHtml(job.proximity.badge)}</span>`
       : '';
 
+    const aiBadge = job.isAITech
+      ? `<span class="tag tag-ai" title="Vaga de criação de aplicativos ou engenharia de inteligência artificial">🤖 Criação de Apps / IA</span>`
+      : '';
+
+    const isToday = job.ageDays !== undefined && job.ageDays <= 0.8;
+    const liveBadge = isToday
+      ? `<span class="tag tag-live-today" title="Publicação recente coletada em tempo real hoje">🔴 Ao Vivo (Hoje)</span>`
+      : '';
+
+    const flyerImageHtml = (job.hasImage && job.imageUrl) ? `
+      <div class="job-flyer-wrap">
+        <div class="flyer-header">
+          <span class="flyer-badge">📸 Anúncio em Imagem / Flyer</span>
+          ${job.ocrText ? `<span class="ocr-status-tag">✓ Texto Lido com OCR</span>` : `
+            <button type="button" class="btn-scan-flyer-ocr" data-ocr-code="${escapeHtml(job.code)}" title="Escanear e ler o texto da imagem">
+              👁️ Ler Imagem com IA (OCR)
+            </button>
+          `}
+        </div>
+        <div class="flyer-img-container">
+          <img src="${escapeHtml(job.imageUrl)}" alt="Flyer do anúncio" class="flyer-img-preview" loading="lazy" />
+        </div>
+        ${job.ocrText ? `
+          <div class="flyer-ocr-box">
+            <strong>👁️ Texto Identificado na Imagem (OCR):</strong>
+            <p>${escapeHtml(job.ocrText)}</p>
+          </div>
+        ` : ''}
+      </div>
+    ` : '';
+
     const originBadge = job.isInternational
       ? `<span class="tag tag-intl">🌎 Estrangeira / Intl</span>`
       : `<span class="tag tag-br">🇧🇷 Brasil</span>`;
@@ -414,6 +445,8 @@ function renderJobs() {
         </div>
 
         <div class="tags-row">
+          ${liveBadge}
+          ${aiBadge}
           ${waBadge}
           ${proximityBadge}
           ${originBadge}
@@ -426,6 +459,7 @@ function renderJobs() {
         </div>
 
         <div class="job-text">${highlightKeywords(job.text)}</div>
+        ${flyerImageHtml}
 
         <div class="authenticity-box">
           <strong>Verificador de Vaga Real:</strong>
@@ -555,6 +589,34 @@ function renderJobs() {
       }
     });
   });
+
+  // Evento do botão Ler Texto da Imagem (OCR)
+  grid.querySelectorAll('[data-ocr-code]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const code = btn.getAttribute('data-ocr-code');
+      btn.disabled = true;
+      btn.textContent = '🔍 Lendo flyer com IA (OCR)...';
+      try {
+        const res = await fetch(`/api/jobs/${encodeURIComponent(code)}/ocr`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.ocrText) {
+          const jobObj = state.allJobs.find(j => j.code === code) || state.savedJobsMap.get(code);
+          if (jobObj) {
+            jobObj.ocrText = data.ocrText;
+            if (data.verification) jobObj.verification = data.verification;
+            jobObj.hasDesignContext = data.hasDesignContext;
+            jobObj.isHiringPost = data.isHiringPost;
+          }
+          renderJobs();
+        } else {
+          btn.textContent = data.error || '⚠️ Texto não identificado';
+        }
+      } catch (err) {
+        btn.textContent = '⚠️ Erro ao processar OCR';
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 async function performSearch(forceRefresh = false) {
@@ -631,11 +693,12 @@ document.addEventListener('DOMContentLoaded', () => {
     'producao_logistica': 'Aux. Produção & Logística',
     'escritorio_adm': 'Escritório & Recepção',
     'design': 'Design Gráfico (BR)',
-    'gringa': 'Design Gringa (USD)'
+    'gringa': 'Design Gringa (USD)',
+    'ai_tech': 'Criação de Apps & IA'
   };
 
   const CLT_TOPICS = ['rj_clt', 'mercado_comercio', 'producao_logistica', 'escritorio_adm'];
-  const DESIGN_TOPICS = ['design', 'gringa'];
+  const DESIGN_TOPICS = ['design', 'gringa', 'ai_tech'];
 
   // Atualiza crachás, contadores e estilos visuais com base no estado de multi-seleção
   const syncToolbarUI = () => {
