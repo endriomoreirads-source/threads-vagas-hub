@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261116_ocr" />
+  <link rel="stylesheet" href="styles.css?v=20261118_vagas_hoje" />
 </head>
 <body>
   <div class="bg-glow bg-glow-1"></div>
@@ -505,8 +505,8 @@
           <button type="button" class="tab-btn" id="tabSavedSwitchBtn">
             <span>★ Salvas</span> <span class="tab-badge" id="savedTabCount">0</span>
           </button>
-          <button type="button" class="tab-btn" id="tabDismissedBtn" title="Vagas que você excluiu">
-            <span>🗑️ Lixo</span> <span class="tab-badge" id="dismissedTabCount">0</span>
+          <button type="button" class="tab-btn" id="tabDismissedBtn" title="Vagas que você já preencheu ou ocultou">
+            <span>✓ Preenchidas</span> <span class="tab-badge" id="dismissedTabCount">0</span>
           </button>
         </div>
 
@@ -518,7 +518,9 @@
             placeholder="Filtrar nesta lista (ex: Caxias, Mercado)..."
           />
           <select id="maxAgeSelect" class="sort-select" aria-label="Período da publicação">
-            <option value="0">Qualquer data</option>
+            <option value="0" selected>Qualquer data</option>
+            <option value="1">🔴 Apenas Hoje (Últimas 24h)</option>
+            <option value="2">Hoje e Ontem (Últimas 48h)</option>
             <option value="4">Até 4 dias atrás</option>
             <option value="7">Até 7 dias atrás</option>
             <option value="15">Até 15 dias atrás</option>
@@ -629,6 +631,6 @@
   <!-- Backdrop do Bottom Sheet para Celulares -->
   <div class="sheet-backdrop" id="sheetBackdrop"></div>
 
-  <script src="app.js?v=20261116_ocr"></script>
+  <script src="app.js?v=20261118_vagas_hoje"></script>
 </body>
 </html>

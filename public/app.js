@@ -314,9 +314,9 @@ function renderJobs() {
     if (state.activeTab === 'saved') {
       emptyMsg = 'Você ainda não salvou nenhuma vaga. Ao clicar em "☆ Salvar" em qualquer vaga, ela virá para cá e sairá da lista principal para não te confundir!';
     } else if (state.activeTab === 'dismissed') {
-      emptyMsg = 'Você ainda não excluiu nenhuma vaga. Ao clicar em "🗑️ Excluir", ela é removida da pesquisa e guardada aqui.';
+      emptyMsg = 'Você ainda não marcou nenhuma vaga como preenchida. Ao clicar em "✓ Já Preenchi" em qualquer vaga, ela sai da sua lista principal e fica guardada aqui no seu histórico!';
     } else if (state.maxAgeDays > 0) {
-      emptyMsg = `Não encontramos publicações nos últimos ${state.maxAgeDays} dias para este tópico. Mude o seletor de data para "Qualquer data" ou escolha outro tópico na barra superior.`;
+      emptyMsg = `Não encontramos publicações ${state.maxAgeDays === 1 ? 'nas últimas 24 horas (hoje)' : state.maxAgeDays === 2 ? 'nas últimas 48 horas (hoje e ontem)' : `nos últimos ${state.maxAgeDays} dias`} para este tópico. Mude o seletor de data para "Qualquer data" ou escolha outro tópico na barra superior.`;
     }
 
     grid.innerHTML = `
@@ -503,8 +503,8 @@ function renderJobs() {
                   ↺ Restaurar
                 </button>
               ` : `
-                <button type="button" class="btn-dismiss" data-dismiss-id="${escapeHtml(job.id)}" title="Remover e não exibir mais nesta lista">
-                  🗑️ Excluir
+                <button type="button" class="btn-dismiss" data-dismiss-id="${escapeHtml(job.id)}" title="Marcar que já se candidatou / preencheu para sair da lista de novas">
+                  ✓ Já Preenchi
                 </button>
               `}
               <button type="button" class="btn-check-live" data-verify-code="${escapeHtml(job.code)}" title="Testar se o post está ativo">
