@@ -123,26 +123,48 @@ async function dispatchSingleJob(job, maxToday) {
   return true;
 }
 
+let lastPauseReason = null;
+
+function notifyMac(title, message) {
+  try {
+    const safeTitle = title.replace(/"/g, '\\"');
+    const safeMsg = message.replace(/"/g, '\\"');
+    exec(`osascript -e 'display notification "${safeMsg}" with title "${safeTitle}"'`);
+  } catch (e) {}
+}
+
 async function processNextJob() {
   const config = autoApplier.loadConfig();
 
   if (!isWithinActiveHours(config)) {
-    log('Fora do horário de operação configurado (08:30 às 20:00). Aguardando próximo ciclo.');
+    log('⏸️ Fora do horário de operação configurado (08:30 às 20:00). Robô pausado até o próximo horário.');
     return false;
   }
 
-  const maxToday = config.timing?.maxDailyDms || 25;
-  if (getDailyAppliedCount() >= maxToday) {
-    log(`Limite diário de segurança atingido (${getDailyAppliedCount()}/${maxToday}). Pausando envios até amanhã.`);
+  const maxToday = config.timing?.maxDailyDms || 40;
+  const countToday = getDailyAppliedCount();
+  if (countToday >= maxToday) {
+    const msg = `🎯 Limite diário de ${countToday}/${maxToday} candidaturas atingido! Robô pausado até amanhã.`;
+    log(msg);
+    if (lastPauseReason !== 'limit') {
+      notifyMac('Robô ThreadsJobs Pausado', `Meta diária de ${maxToday} vagas atingida! Voltamos amanhã.`);
+      lastPauseReason = 'limit';
+    }
     return false;
   }
 
   const pair = await findNextQueuePair();
   if (pair.length === 0) {
-    log('Nenhuma vaga nova pendente na fila.');
+    const msg = '✅ Já preenchemos todas as vagas verdadeiras disponíveis nos últimos 3 dias! Robô pausado aguardando novas vagas.';
+    log(msg);
+    if (lastPauseReason !== 'empty') {
+      notifyMac('Todas as Vagas Preenchidas ✅', 'Todas as vagas reais disponíveis já foram enviadas. Robô em pausa.');
+      lastPauseReason = 'empty';
+    }
     return false;
   }
 
+  lastPauseReason = null;
   let anySent = false;
   for (let i = 0; i < pair.length; i++) {
     const ok = await dispatchSingleJob(pair[i], maxToday);

@@ -48,6 +48,6 @@
     "activeEndHour": 20.0,
     "minDelayMinutes": 30,
     "maxDelayMinutes": 40,
-    "maxDailyDms": 25
+    "maxDailyDms": 40
   }
 }
