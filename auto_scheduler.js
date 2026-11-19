@@ -36,9 +36,9 @@ function getRandomDelayMs(config) {
   return Math.round(randomMinutes * 60 * 1000);
 }
 
-async function findNextQueueJob() {
+function getEligibleRecentJobs() {
   const DB_FILE = path.join(__dirname, 'data', 'jobs_store.json');
-  if (!fs.existsSync(DB_FILE)) return null;
+  if (!fs.existsSync(DB_FILE)) return [];
 
   const allJobs = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   const appliedSet = new Set(autoApplier.loadAppliedJobs().map(a => a.jobId));
@@ -51,8 +51,6 @@ async function findNextQueueJob() {
   // e NUNCA repete para o mesmo autor/perfil (garantia de perfil único)
   const candidates = allJobs.filter(j => {
     if (appliedSet.has(j.id)) return false;
-
-    // Filtra para garantir que a vaga foi postada nos últimos 3 dias
     if (j.takenAt && (nowSec - j.takenAt) > THREE_DAYS_SEC) return false;
 
     const author = j.author?.username;
@@ -61,10 +59,68 @@ async function findNextQueueJob() {
     return autoApplier.isStrictDesignHiring(j);
   });
 
-  if (candidates.length === 0) return null;
   // Ordena pelas mais recentes primeiro
   candidates.sort((a, b) => (b.takenAt || 0) - (a.takenAt || 0));
-  return candidates[0];
+  return candidates;
+}
+
+async function findNextQueuePair() {
+  const candidates = getEligibleRecentJobs();
+  if (candidates.length === 0) return [];
+
+  const brJob = candidates.find(j => !autoApplier.isEnglishJob(j)) || null;
+  const enJob = candidates.find(j => autoApplier.isEnglishJob(j)) || null;
+
+  const pair = [];
+  if (brJob) pair.push(brJob);
+  if (enJob && (!brJob || enJob.author?.username !== brJob.author?.username)) {
+    pair.push(enJob);
+  }
+  return pair;
+}
+
+async function dispatchSingleJob(job, maxToday) {
+  const appliedToday = getDailyAppliedCount();
+  if (appliedToday >= maxToday) {
+    log(`Limite diário de segurança atingido (${appliedToday}/${maxToday}). Pausando envios até amanhã.`);
+    return false;
+  }
+
+  const pkg = autoApplier.generateApplicationPackage(job);
+  log(`Processando vaga [${pkg.jobCode}] | Idioma: ${pkg.languageLabel} | Canal: ${pkg.primaryChannel}`);
+  if (pkg.asksForSalary) {
+    log(`-> Pretensão salarial detectada e incluída no texto: ${pkg.salaryIncludedText}`);
+  }
+
+  try {
+    if (pkg.primaryChannel === 'email' && pkg.urls.gmailUrl) {
+      log(`-> Abrindo Gmail no seu Chrome com destinatário (${pkg.contacts.primaryEmail}) e texto prontos...`);
+      await browserBot.sendEmailViaChrome(pkg.urls.gmailUrl, pkg.contacts.primaryEmail);
+    } else {
+      log(`-> Abrindo Threads de @${pkg.contacts.authorUsername} no seu Chrome...`);
+      await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body);
+
+      if (pkg.contacts.hasExplicitInstagram && pkg.contacts.igHandle) {
+        log(`-> Perfil tem Instagram detectado (@${pkg.contacts.igHandle})! Abrindo para enviar também...`);
+        await new Promise(r => setTimeout(r, 4000));
+        await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body);
+      } else {
+        log(`-> Perfil sem Instagram no post. Enviado exclusivamente no Threads.`);
+      }
+    }
+  } catch (err) {
+    log(`Aviso ao tentar envio automático: ${err.message}`);
+  }
+
+  autoApplier.markAsApplied(
+    pkg.jobId,
+    pkg.primaryChannel,
+    `Processado via AutoScheduler (${pkg.languageLabel})`,
+    pkg.contacts.authorUsername,
+    pkg.contacts.igHandle
+  );
+  log(`✓ Candidatura registrada com sucesso para [${pkg.jobCode}] (@${pkg.contacts.authorUsername}). Total hoje: ${appliedToday + 1}/${maxToday}`);
+  return true;
 }
 
 async function processNextJob() {
@@ -75,60 +131,28 @@ async function processNextJob() {
     return false;
   }
 
-  const appliedToday = getDailyAppliedCount();
-  const maxToday = config.timing?.maxDailyDms || 15;
-  if (appliedToday >= maxToday) {
-    log(`Limite diário de segurança atingido (${appliedToday}/${maxToday}). Pausando envios até amanhã.`);
+  const maxToday = config.timing?.maxDailyDms || 25;
+  if (getDailyAppliedCount() >= maxToday) {
+    log(`Limite diário de segurança atingido (${getDailyAppliedCount()}/${maxToday}). Pausando envios até amanhã.`);
     return false;
   }
 
-  const nextJob = await findNextQueueJob();
-  if (!nextJob) {
+  const pair = await findNextQueuePair();
+  if (pair.length === 0) {
     log('Nenhuma vaga nova pendente na fila.');
     return false;
   }
 
-  const pkg = autoApplier.generateApplicationPackage(nextJob);
-  log(`Processando vaga [${pkg.jobCode}] | Idioma: ${pkg.languageLabel} | Canal: ${pkg.primaryChannel}`);
-  if (pkg.asksForSalary) {
-    log(`-> Pretensão salarial detectada e incluída no texto: ${pkg.salaryIncludedText}`);
-  }
-
-  // Tenta disparo real no canal correspondente
-  let sendResult = { success: false };
-  try {
-    if (pkg.primaryChannel === 'email' && pkg.urls.gmailUrl) {
-      log(`-> Abrindo Gmail no seu Chrome com destinatário (${pkg.contacts.primaryEmail}) e texto prontos...`);
-      sendResult = await browserBot.sendEmailViaChrome(pkg.urls.gmailUrl, pkg.contacts.primaryEmail);
-    } else {
-      // 1. Sempre envia no Threads (onde a vaga foi encontrada)
-      log(`-> Abrindo Threads de @${pkg.contacts.authorUsername} no seu Chrome...`);
-      await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body);
-
-      // 2. Se tiver Instagram detectado, envia também no Instagram!
-      if (pkg.contacts.hasExplicitInstagram && pkg.contacts.igHandle) {
-        log(`-> Perfil tem Instagram detectado (@${pkg.contacts.igHandle})! Abrindo para enviar também...`);
-        await new Promise(r => setTimeout(r, 4000));
-        await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body);
-      } else {
-        log(`-> Perfil sem Instagram no post. Enviado exclusivamente no Threads.`);
-      }
-      sendResult = { success: true };
+  let anySent = false;
+  for (let i = 0; i < pair.length; i++) {
+    const ok = await dispatchSingleJob(pair[i], maxToday);
+    if (ok) anySent = true;
+    if (i < pair.length - 1) {
+      log('⏱️ Aguardando 12s antes da segunda candidatura deste ciclo (BR + Gringa)...');
+      await new Promise(r => setTimeout(r, 12000));
     }
-  } catch (err) {
-    log(`Aviso ao tentar envio automático: ${err.message}`);
   }
-
-  // Registra candidatura e bloqueia o autor de envios repetidos
-  autoApplier.markAsApplied(
-    pkg.jobId,
-    pkg.primaryChannel,
-    `Processado via AutoScheduler (${pkg.languageLabel})`,
-    pkg.contacts.authorUsername,
-    pkg.contacts.igHandle
-  );
-  log(`✓ Candidatura registrada com sucesso para [${pkg.jobCode}] (@${pkg.contacts.authorUsername}). Total hoje: ${appliedToday + 1}/${maxToday}`);
-  return true;
+  return anySent;
 }
 
 async function triggerLiveThreadsScan() {
