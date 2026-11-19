@@ -4,6 +4,7 @@ const path = require('path');
 
 const CONFIG_PATH = path.join(__dirname, 'data', 'auto_apply_config.json');
 const APPLIED_STORE_PATH = path.join(__dirname, 'data', 'applied_jobs.json');
+const CONTACTED_AUTHORS_PATH = path.join(__dirname, 'data', 'contacted_authors.json');
 
 function loadConfig() {
   try {
@@ -33,6 +34,44 @@ function saveAppliedJobs(list) {
   } catch (err) {
     console.error('[AutoApply] Erro ao salvar applied_jobs:', err.message);
   }
+}
+
+function loadContactedAuthors() {
+  try {
+    if (fs.existsSync(CONTACTED_AUTHORS_PATH)) {
+      return JSON.parse(fs.readFileSync(CONTACTED_AUTHORS_PATH, 'utf8'));
+    }
+  } catch (err) {}
+  return [];
+}
+
+function saveContactedAuthors(list) {
+  try {
+    fs.writeFileSync(CONTACTED_AUTHORS_PATH, JSON.stringify(list, null, 2), 'utf8');
+  } catch (err) {}
+}
+
+function addContactedAuthor(username) {
+  if (!username) return;
+  const clean = username.replace('@', '').toLowerCase().trim();
+  const list = loadContactedAuthors();
+  if (!list.includes(clean)) {
+    list.push(clean);
+    saveContactedAuthors(list);
+  }
+}
+
+function isAuthorAlreadyContacted(username, igHandle = null) {
+  const list = loadContactedAuthors();
+  if (username) {
+    const cleanUser = username.replace('@', '').toLowerCase().trim();
+    if (list.includes(cleanUser)) return true;
+  }
+  if (igHandle) {
+    const cleanIg = igHandle.replace('@', '').toLowerCase().trim();
+    if (list.includes(cleanIg)) return true;
+  }
+  return false;
 }
 
 // Regex de rejeição estrita: desabafos de mercado, candidatos se oferecendo, permutas, cursos e estética
@@ -71,18 +110,13 @@ const IG_HANDLE_REGEX = /\b(?:ig\s*dm|direct\s*do\s*ig|instagram|insta|no\s+ig)\
 // Regex para verificar se o post exige pretensão salarial
 const SALARY_PROMPT_REGEX = /\b(pretens[ãa]o|pretensao\s+salarial|sal[áa]rio\s+pretendido|quanto\s+cobra|proposta\s+salarial|faixa\s+salarial|salary\s+expectation|expected\s+salary|rate\s+per\s+hour|hourly\s+rate|monthly\s+rate|your\s+rate|send\s+your\s+rate|budget\s+expectation)\b/i;
 
-/**
- * Analisa a vaga e extrai todos os canais de contato disponíveis
- */
 function extractJobContacts(job) {
   const text = `${job.text || ''} ${job.ocrText || ''}`.trim();
   
-  // 1. Extração de e-mails
   const emailMatches = text.match(EMAIL_REGEX) || [];
   const validEmails = emailMatches.filter(e => !e.includes('threads') && !e.includes('example.com'));
   const primaryEmail = validEmails[0] || null;
 
-  // 2. Extração de WhatsApp
   let primaryPhone = null;
   let phoneDigits = null;
   if (job.waInfo && job.waInfo.cleanDigits) {
@@ -99,7 +133,6 @@ function extractJobContacts(job) {
     }
   }
 
-  // 3. Instagram: detecta se foi explicitamente citado no post
   let igHandle = null;
   let hasExplicitInstagram = false;
   const igMatch = text.match(IG_HANDLE_REGEX);
@@ -122,9 +155,6 @@ function extractJobContacts(job) {
   };
 }
 
-/**
- * Detecta se a vaga está em inglês
- */
 function isEnglishJob(job) {
   if (job.isInternational) return true;
   const text = `${job.text || ''} ${job.ocrText || ''}`.toLowerCase();
@@ -133,9 +163,6 @@ function isEnglishJob(job) {
   return enMatches.length > ptMatches.length;
 }
 
-/**
- * Gera o pacote completo de candidatura personalizada para a vaga
- */
 function generateApplicationPackage(job, customConfig = null) {
   const config = customConfig || loadConfig();
   const contacts = extractJobContacts(job);
@@ -210,19 +237,25 @@ function generateApplicationPackage(job, customConfig = null) {
   };
 }
 
-function markAsApplied(jobId, channel, notes = '') {
+function markAsApplied(jobId, channel, notes = '', authorUsername = null, igHandle = null) {
   const applied = loadAppliedJobs();
   const exists = applied.find(a => a.jobId === jobId);
   if (!exists) {
     applied.push({
       jobId,
       channel,
+      authorUsername,
+      igHandle,
       appliedAt: Date.now(),
       appliedAtISO: new Date().toISOString(),
       notes
     });
     saveAppliedJobs(applied);
   }
+
+  // Registra no banco de autores contatados para evitar duplicatas futuras
+  if (authorUsername) addContactedAuthor(authorUsername);
+  if (igHandle) addContactedAuthor(igHandle);
 }
 
 function isJobApplied(jobId) {
@@ -239,5 +272,8 @@ module.exports = {
   isJobApplied,
   loadAppliedJobs,
   saveAppliedJobs,
-  isStrictDesignHiring
+  isStrictDesignHiring,
+  loadContactedAuthors,
+  addContactedAuthor,
+  isAuthorAlreadyContacted
 };

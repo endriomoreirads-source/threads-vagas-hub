@@ -44,8 +44,12 @@ async function findNextQueueJob() {
   const appliedSet = new Set(autoApplier.loadAppliedJobs().map(a => a.jobId));
 
   // Prioriza exclusivamente vagas de design com intenção estrita e verificada de contratação
+  // e NUNCA repete para o mesmo autor/perfil (garantia de perfil único)
   const candidates = allJobs.filter(j => {
     if (appliedSet.has(j.id)) return false;
+    const author = j.author?.username;
+    const ig = j.contacts?.igHandle;
+    if (autoApplier.isAuthorAlreadyContacted(author, ig)) return false;
     return autoApplier.isStrictDesignHiring(j);
   });
 
@@ -106,9 +110,15 @@ async function processNextJob() {
     log(`Aviso ao tentar envio automático: ${err.message}`);
   }
 
-  // Registra candidatura
-  autoApplier.markAsApplied(pkg.jobId, pkg.primaryChannel, `Processado via AutoScheduler (${pkg.languageLabel})`);
-  log(`✓ Candidatura registrada com sucesso para [${pkg.jobCode}]. Total hoje: ${appliedToday + 1}/${maxToday}`);
+  // Registra candidatura e bloqueia o autor de envios repetidos
+  autoApplier.markAsApplied(
+    pkg.jobId,
+    pkg.primaryChannel,
+    `Processado via AutoScheduler (${pkg.languageLabel})`,
+    pkg.contacts.authorUsername,
+    pkg.contacts.igHandle
+  );
+  log(`✓ Candidatura registrada com sucesso para [${pkg.jobCode}] (@${pkg.contacts.authorUsername}). Total hoje: ${appliedToday + 1}/${maxToday}`);
   return true;
 }
 

@@ -13,6 +13,9 @@ async function getPendingJobs(limit = 3) {
 
   const candidates = allJobs.filter(j => {
     if (appliedSet.has(j.id)) return false;
+    const author = j.author?.username;
+    const ig = j.contacts?.igHandle;
+    if (autoApplier.isAuthorAlreadyContacted(author, ig)) return false;
     return autoApplier.isStrictDesignHiring(j);
   });
 

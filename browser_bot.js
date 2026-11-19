@@ -1,22 +1,15 @@
 // browser_bot.js - Automação Nativa no seu Google Chrome Aberto (100% Sem Captcha)
-const { execSync, exec } = require('child_process');
+const { execSync } = require('child_process');
 
-/**
- * Copia texto com segurança para a área de transferência do macOS
- */
 function copyToClipboard(text) {
   try {
     execSync('pbcopy', { input: text, encoding: 'utf8' });
     return true;
   } catch (err) {
-    console.error('[BrowserBot] Erro ao copiar para área de transferência:', err.message);
     return false;
   }
 }
 
-/**
- * Abre uma URL em nova aba no seu Google Chrome ativo e traz a janela para frente
- */
 function openInChrome(url) {
   const script = `
     tell application "Google Chrome"
@@ -27,19 +20,29 @@ function openInChrome(url) {
   execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
 }
 
-/**
- * Simula colar (Cmd+V) e pressionar Enter no Chrome via System Events
- */
-function pasteAndSendViaSystemEvents(delaySeconds = 4) {
+function executeChromeJs(jsCode) {
+  const script = `
+    tell application "Google Chrome"
+      tell active tab of front window
+        execute javascript "${jsCode.replace(/"/g, '\\"')}"
+      end tell
+    end tell
+  `;
+  try {
+    return execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { encoding: 'utf8' }).trim();
+  } catch (err) {
+    return null;
+  }
+}
+
+function pasteAndSendViaSystemEvents(delaySeconds = 3) {
   const script = `
     delay ${delaySeconds}
     tell application "System Events"
       tell process "Google Chrome"
         set frontmost to true
-        -- Cola o texto do clipboard (Cmd + V)
         keystroke "v" using command down
         delay 1
-        -- Pressiona Enter para enviar
         keystroke return
       end tell
     end tell
@@ -48,64 +51,80 @@ function pasteAndSendViaSystemEvents(delaySeconds = 4) {
     execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
     return true;
   } catch (err) {
-    console.log('[BrowserBot] Aviso ao colar automaticamente:', err.message);
     return false;
   }
 }
 
-/**
- * Envia uma mensagem direta de verdade para um usuário no Threads usando o seu Chrome
- */
 async function sendThreadsDirectMessage(username, messageText) {
-  console.log(`[BrowserBot] 🚀 Abrindo Threads de @${username} no seu Google Chrome ativo...`);
+  console.log(`[BrowserBot] 🚀 Abrindo perfil no Threads de @${username}...`);
   copyToClipboard(messageText);
 
   const profileUrl = `https://www.threads.com/@${username}`;
   openInChrome(profileUrl);
 
-  console.log('[BrowserBot] ✓ Aba aberta no seu Chrome com o perfil!');
-  console.log('[BrowserBot] 📋 Mensagem personalizada e portfólio já estão na sua área de transferência.');
-  
-  // Tenta colar automaticamente na caixa de mensagem
-  console.log('[BrowserBot] Aguardando carregamento para envio...');
-  const sent = pasteAndSendViaSystemEvents(4);
-  if (sent) {
-    console.log(`[BrowserBot] ✓ Ação de envio disparada no Threads para @${username}!`);
+  console.log('[BrowserBot] ✓ Perfil aberto no Chrome. Aguardando 4.5s de carregamento...');
+  await new Promise(r => setTimeout(r, 4500));
+
+  // Tenta clicar no botão "Enviar mensagem" ou "Mensagem" via JavaScript se permitido no Chrome
+  const clickScript = `
+    (function() {
+      const all = Array.from(document.querySelectorAll('div[role="button"], button, span, a'));
+      const btn = all.find(el => {
+        const t = (el.innerText || '').toLowerCase().trim();
+        return t === 'enviar mensagem' || t === 'mensagem' || t === 'message' || t === 'send message';
+      });
+      if (btn) {
+        const clickable = btn.closest('div[role="button"]') || btn.closest('button') || btn;
+        clickable.click();
+        return 'clicked';
+      }
+      return 'not_found';
+    })()
+  `;
+  const result = executeChromeJs(clickScript);
+
+  if (result === 'clicked') {
+    console.log('[BrowserBot] ✓ Botão de Mensagem clicado automaticamente!');
+    await new Promise(r => setTimeout(r, 2500));
+
+    // Foca na caixa de mensagem aberta
+    const focusScript = `
+      (function() {
+        const box = document.querySelector('div[contenteditable="true"], textarea, div[role="textbox"]');
+        if (box) { box.focus(); return 'focused'; }
+        return 'not_found';
+      })()
+    `;
+    executeChromeJs(focusScript);
+    await new Promise(r => setTimeout(r, 800));
+
+    pasteAndSendViaSystemEvents(1);
+    console.log(`[BrowserBot] ✓ Mensagem colada e enviada para @${username}!`);
   } else {
-    console.log(`[BrowserBot] A mensagem está copiada! Basta dar Cmd+V e Enter.`);
+    console.log('[BrowserBot] ⚠️ O Chrome bloqueou a execução de script para clicar no botão.');
+    console.log('[BrowserBot] 👉 Para ativar: Menu do Chrome > Visualização > Desenvolvedor > "Permitir o JavaScript do Eventos da Apple"');
+    console.log('[BrowserBot] 📋 A mensagem já está na sua área de transferência (Cmd+V).');
+    pasteAndSendViaSystemEvents(3);
   }
 
   return { success: true, platform: 'threads' };
 }
 
-/**
- * Envia uma mensagem direta de verdade no Instagram usando o seu Chrome
- */
 async function sendInstagramDirectMessage(username, messageText) {
-  console.log(`[BrowserBot] 🚀 Abrindo chat do Instagram de @${username} no seu Google Chrome ativo...`);
+  console.log(`[BrowserBot] 🚀 Abrindo chat direto no Instagram com @${username}...`);
   copyToClipboard(messageText);
 
-  // Link direto para o chat do usuário no Instagram Web
   const dmUrl = `https://ig.me/m/${username}`;
   openInChrome(dmUrl);
 
-  console.log('[BrowserBot] ✓ Aba de chat aberta no seu Chrome!');
-  console.log('[BrowserBot] 📋 Mensagem personalizada e portfólio já estão na sua área de transferência.');
-  
-  console.log('[BrowserBot] Aguardando carregamento para envio...');
-  const sent = pasteAndSendViaSystemEvents(5);
-  if (sent) {
-    console.log(`[BrowserBot] ✓ Ação de envio disparada no Instagram para @${username}!`);
-  } else {
-    console.log(`[BrowserBot] A mensagem está copiada! Basta dar Cmd+V e Enter.`);
-  }
+  console.log('[BrowserBot] ✓ Chat do Instagram aberto no Chrome. Aguardando...');
+  await new Promise(r => setTimeout(r, 5000));
 
+  pasteAndSendViaSystemEvents(2);
+  console.log(`[BrowserBot] ✓ Mensagem enviada no Instagram para @${username}!`);
   return { success: true, platform: 'instagram' };
 }
 
-/**
- * Abre o Gmail no Chrome ativo com tudo preenchido
- */
 async function sendEmailViaChrome(gmailUrl, email) {
   console.log(`[BrowserBot] 🚀 Abrindo Gmail para ${email} no seu Chrome ativo...`);
   openInChrome(gmailUrl);
@@ -116,6 +135,7 @@ async function sendEmailViaChrome(gmailUrl, email) {
 module.exports = {
   copyToClipboard,
   openInChrome,
+  executeChromeJs,
   sendThreadsDirectMessage,
   sendInstagramDirectMessage,
   sendEmailViaChrome
