@@ -1,7 +1,7 @@
 {
   "candidate": {
     "name": "Endrio Moreira",
-    "email": "Endriodscontato@gmail.com",
+    "email": "endriodscontato@gmail.com",
     "phone": "(21) 96667-2372",
     "phoneDigits": "5521966672372",
     "portfolioUrl": "https://endriodsgn.vercel.app/",
@@ -33,11 +33,21 @@
       "body": "Hey! Saw your post about the design opportunity and would love to help out.\n\nI’m a graphic designer with 5+ years of experience specializing in social media, print materials, and landing page layouts.\n\nYou can check out my portfolio here:\n👉 https://endriodsgn.vercel.app/\n\nHope we can chat!\nBest,\nEndrio"
     }
   },
+  "emailTemplates": {
+    "pt": {
+      "subject": "Designer | Endrio Moreira",
+      "body": "Olá, tudo bem? Prazer, me chamo Endrio!\nAcabei de ver a oportunidade e tenho total interesse.\n\nAtuo há mais de 5 anos como designer gráfico, com experiência em diversos nichos. Minha especialidade é o design para social media, mas também atuei por 1 ano em uma gráfica, onde adquiri sólida experiência com materiais impressos. Além disso, também desenvolvo layouts para landing pages e cuido da implementação visual desses projetos.\n\nSegue abaixo o link do meu portfólio, que já contém meus contatos:\n👉 https://endriodsgn.vercel.app/\nDesde já, agradeço pela atenção e fico à disposição para conversarmos!\nAbraço!"
+    },
+    "en": {
+      "subject": "Designer | Endrio Moreira",
+      "body": "Hello! Nice to meet you—my name is Endrio.\nI just came across this opportunity and am very interested.\n\nI have been working as a graphic designer for over 5 years, with experience across various niches. My specialty is social media design, but I also spent a year working at a print shop, where I gained solid experience with printed materials. Additionally, I create layouts for landing pages and handle the visual implementation for these projects.\n\nYou can find my portfolio—which also includes my contact information—at the link below:\n👉 https://endriodsgn.vercel.app/\n\nThank you for your time and consideration; I look forward to the possibility of speaking with you!\nBest regards!"
+    }
+  },
   "timing": {
     "activeStartHour": 8.5,
     "activeEndHour": 20.0,
     "minDelayMinutes": 30,
     "maxDelayMinutes": 40,
-    "maxDailyDms": 15
+    "maxDailyDms": 25
   }
 }

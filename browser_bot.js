@@ -232,35 +232,41 @@ async function sendInstagramDirectMessage(username, messageText) {
  * Envia e-mail pelo Gmail em uma nova aba isolada.
  */
 async function sendEmailViaChrome(gmailUrl, email) {
-  console.log(`[BrowserBot] 🚀 Abrindo NOVA aba no Gmail para ${email}...`);
+  console.log(`[BrowserBot] 🚀 Abrindo NOVA aba no Gmail (endriodscontato@gmail.com) para ${email}...`);
   const tabId = openNewTabInChrome(gmailUrl);
 
-  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada com Destinatário, Assunto e Mensagem.`);
-  console.log('[BrowserBot] Aguardando 6s para carregamento do Gmail...');
-  await new Promise(r => setTimeout(r, 6000));
+  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada com Destinatário, Assunto e Mensagem. Aguardando botão Enviar...`);
 
-  // Tenta clicar no botão Enviar via JS na aba isolada
   const sendScript = `
     (function() {
       const all = Array.from(document.querySelectorAll('div[role="button"]'));
       const sendBtn = all.find(el => {
         const text = (el.innerText || '').toLowerCase().trim();
         const label = (el.getAttribute('aria-label') || '').toLowerCase();
-        return text.startsWith('enviar') || text === 'send' || label.includes('enviar') || label.includes('send');
+        const tooltip = (el.getAttribute('data-tooltip') || '').toLowerCase();
+        return text === 'enviar' || text === 'send' || label.startsWith('enviar') || label.startsWith('send') || tooltip.startsWith('enviar') || tooltip.startsWith('send');
       });
       if (sendBtn) {
+        sendBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        sendBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
         sendBtn.click();
         return 'sent';
       }
       return 'not_found';
     })()
   `;
-  const res = executeJsOnTab(tabId, sendScript);
+
+  let res = 'not_found';
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await new Promise(r => setTimeout(r, 1500));
+    res = executeJsOnTab(tabId, sendScript);
+    if (res === 'sent') break;
+  }
 
   if (res === 'sent') {
-    console.log(`[BrowserBot] ✓ Botão Enviar clicado no Gmail para ${email}!`);
+    console.log(`[BrowserBot] ✓ Botão Enviar clicado com sucesso no Gmail para ${email}!`);
   } else {
-    // Dispara Cmd+Enter na aba do Gmail
+    // Dispara Cmd+Enter na aba do Gmail como fallback
     const script = `
       tell application "Google Chrome"
         activate

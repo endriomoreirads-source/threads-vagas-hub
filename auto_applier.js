@@ -163,11 +163,42 @@ function isEnglishJob(job) {
   return enMatches.length > ptMatches.length;
 }
 
+function injectSalaryIfNeeded(body, isEn, salaryText) {
+  if (isEn) {
+    if (body.includes('Thank you for your time')) {
+      return body.replace('Thank you for your time', `${salaryText}\n\nThank you for your time`);
+    }
+    if (body.includes('Hope we can chat!')) {
+      return body.replace('Hope we can chat!', `${salaryText}\n\nHope we can chat!`);
+    }
+  } else {
+    if (body.includes('Desde já, agradeço')) {
+      return body.replace('Desde já, agradeço', `${salaryText}\n\nDesde já, agradeço`);
+    }
+    if (body.includes('Se fizer sentido')) {
+      return body.replace('Se fizer sentido', `${salaryText}\n\nSe fizer sentido`);
+    }
+  }
+  return `${body}\n\n${salaryText}`;
+}
+
 function generateApplicationPackage(job, customConfig = null) {
   const config = customConfig || loadConfig();
   const contacts = extractJobContacts(job);
   const isEn = isEnglishJob(job);
-  const templateConfig = isEn ? config.templates.en : config.templates.pt;
+
+  let primaryChannel = 'threads';
+  if (contacts.primaryEmail) {
+    primaryChannel = 'email';
+  } else if (contacts.primaryPhone) {
+    primaryChannel = 'whatsapp';
+  } else if (contacts.hasExplicitInstagram) {
+    primaryChannel = 'both_threads_and_ig';
+  }
+
+  const useEmailTemplate = primaryChannel === 'email' && config.emailTemplates;
+  const templateSet = useEmailTemplate ? config.emailTemplates : config.templates;
+  const templateConfig = isEn ? templateSet.en : templateSet.pt;
   const salaryConfig = isEn ? config.salary.international : config.salary.br;
 
   const text = `${job.text || ''} ${job.ocrText || ''}`;
@@ -177,23 +208,14 @@ function generateApplicationPackage(job, customConfig = null) {
   let subject = templateConfig.subject;
 
   if (asksForSalary) {
-    if (isEn) {
-      finalBody = finalBody.replace(
-        'Hope we can chat!',
-        `${salaryConfig.text}\n\nHope we can chat!`
-      );
-    } else {
-      finalBody = finalBody.replace(
-        'Se fizer sentido',
-        `${salaryConfig.text}\n\nSe fizer sentido`
-      );
-    }
+    finalBody = injectSalaryIfNeeded(finalBody, isEn, salaryConfig.text);
   }
 
+  const senderEmail = config.candidate?.email || 'endriodscontato@gmail.com';
   let gmailUrl = null;
   let mailtoUrl = null;
   if (contacts.primaryEmail) {
-    gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contacts.primaryEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
+    gmailUrl = `https://mail.google.com/mail/?authuser=${encodeURIComponent(senderEmail)}&view=cm&fs=1&to=${encodeURIComponent(contacts.primaryEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
     mailtoUrl = `mailto:${encodeURIComponent(contacts.primaryEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
   }
 
@@ -205,15 +227,6 @@ function generateApplicationPackage(job, customConfig = null) {
   const threadsDmUrl = `https://www.threads.com/@${contacts.authorUsername}`;
   const instagramDmUrl = contacts.igHandle ? `https://ig.me/m/${contacts.igHandle}` : null;
   const instagramProfileUrl = contacts.igHandle ? `https://instagram.com/${contacts.igHandle}` : null;
-
-  let primaryChannel = 'threads';
-  if (contacts.primaryEmail) {
-    primaryChannel = 'email';
-  } else if (contacts.primaryPhone) {
-    primaryChannel = 'whatsapp';
-  } else if (contacts.hasExplicitInstagram) {
-    primaryChannel = 'both_threads_and_ig';
-  }
 
   return {
     jobId: job.id,
