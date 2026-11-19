@@ -1,7 +1,9 @@
 // auto_scheduler.js - Agendador e Fila de Candidatura com Temporizador Humano (Anti-Ban)
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
 const autoApplier = require('./auto_applier');
+const browserBot = require('./browser_bot');
 
 const LOG_FILE = path.join(__dirname, 'data', 'auto_scheduler.log');
 
@@ -77,6 +79,24 @@ async function processNextJob() {
   log(`Processando vaga [${pkg.jobCode}] | Idioma: ${pkg.languageLabel} | Canal: ${pkg.primaryChannel}`);
   if (pkg.asksForSalary) {
     log(`-> Pretensão salarial detectada e incluída no texto: ${pkg.salaryIncludedText}`);
+  }
+
+  // Tenta disparo real no canal correspondente
+  let sendResult = { success: false };
+  try {
+    if (pkg.primaryChannel === 'instagram' && pkg.contacts.igHandle) {
+      log(`-> Abrindo Instagram para enviar DM a @${pkg.contacts.igHandle}...`);
+      sendResult = await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body, { headless: false });
+    } else if (pkg.primaryChannel === 'threads' || (!pkg.contacts.primaryEmail && pkg.contacts.authorUsername)) {
+      log(`-> Abrindo Threads para enviar DM a @${pkg.contacts.authorUsername}...`);
+      sendResult = await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body, { headless: false });
+    } else if (pkg.primaryChannel === 'email' && pkg.urls.gmailUrl) {
+      log(`-> Abrindo Gmail no navegador com destinatário (${pkg.contacts.primaryEmail}) e texto prontos...`);
+      exec(`open "${pkg.urls.gmailUrl}"`);
+      sendResult = { success: true, platform: 'email' };
+    }
+  } catch (err) {
+    log(`Aviso ao tentar envio automático: ${err.message}`);
   }
 
   // Registra candidatura
