@@ -69,14 +69,15 @@ function pasteAndSendInTab(tabId) {
     tell application "Google Chrome"
       activate
       repeat with w in windows
-        repeat with t in tabs of w
+        repeat with idx from 1 to (count of tabs of w)
+          set t to tab idx of w
           if (id of t as text) is "${tabId}" then
             set origIdx to active tab index of w
-            set active tab index of w to (get index of t)
+            set active tab index of w to idx
             
             -- Foca o campo de texto
             tell t to execute javascript "
-              const box = document.querySelector('div[role=\\\"textbox\\\"][contenteditable=\\\"true\\\"], textarea');
+              const box = document.querySelector('div[role=\\"textbox\\"][contenteditable=\\"true\\"], textarea');
               if (box) box.focus();
             "
             
@@ -93,9 +94,9 @@ function pasteAndSendInTab(tabId) {
             -- Clica no botão oficial de Enviar que aparece após digitar
             tell t to execute javascript "
               (function() {
-                const sendSvg = document.querySelector('svg[title=\\\"Enviar\\\"], svg[aria-label=\\\"Enviar\\\"], svg[title=\\\"Send\\\"], svg[aria-label=\\\"Send\\\"]');
+                const sendSvg = document.querySelector('svg[title=\\"Enviar\\"], svg[aria-label=\\"Enviar\\"], svg[title=\\"Send\\"], svg[aria-label=\\"Send\\"]');
                 if (sendSvg) {
-                  const btn = sendSvg.closest('div[role=\\\"button\\\"]') || sendSvg.parentElement || sendSvg;
+                  const btn = sendSvg.closest('div[role=\\"button\\"]') || sendSvg.parentElement || sendSvg;
                   btn.click();
                   return 'clicked_svg';
                 }
@@ -121,9 +122,10 @@ function pasteAndSendInTab(tabId) {
     end tell
   `;
   try {
-    execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
-    return true;
+    const out = execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { encoding: 'utf8' }).trim();
+    return out === 'sent';
   } catch (err) {
+    console.error('[BrowserBot] Erro no AppleScript ao colar/enviar:', err.message);
     return false;
   }
 }
@@ -189,13 +191,17 @@ async function sendThreadsDirectMessage(username, messageText) {
 
     // 2. Cola o texto e clica no botão oficial de Enviar
     console.log('[BrowserBot] 📝 Preenchendo texto e enviando mensagem...');
-    pasteAndSendInTab(tabId);
-    console.log(`[BrowserBot] ✓ Mensagem enviada para @${username} com sucesso!`);
+    const sentOk = pasteAndSendInTab(tabId);
+    if (sentOk) {
+      console.log(`[BrowserBot] ✓ Mensagem enviada para @${username} com sucesso!`);
+    } else {
+      console.log(`[BrowserBot] ❌ Falha ao colar/enviar mensagem na aba [${tabId}] para @${username}.`);
+    }
+    return { success: sentOk, platform: 'threads', tabId };
   } else {
     console.log('[BrowserBot] ⚠️ Aviso: Botão de mensagem não encontrado nesta página.');
+    return { success: false, platform: 'threads', tabId };
   }
-
-  return { success: true, platform: 'threads', tabId };
 }
 
 /**
@@ -212,10 +218,14 @@ async function sendInstagramDirectMessage(username, messageText) {
   await new Promise(r => setTimeout(r, 5500));
 
   console.log('[BrowserBot] 📝 Preenchendo texto e enviando mensagem no Instagram...');
-  pasteAndSendInTab(tabId);
-  console.log(`[BrowserBot] ✓ Mensagem enviada no Instagram para @${username}!`);
+  const sentOk = pasteAndSendInTab(tabId);
+  if (sentOk) {
+    console.log(`[BrowserBot] ✓ Mensagem enviada no Instagram para @${username}!`);
+  } else {
+    console.log(`[BrowserBot] ❌ Falha ao enviar mensagem no Instagram na aba [${tabId}] para @${username}.`);
+  }
 
-  return { success: true, platform: 'instagram', tabId };
+  return { success: sentOk, platform: 'instagram', tabId };
 }
 
 /**
@@ -253,18 +263,22 @@ async function sendEmailViaChrome(gmailUrl, email) {
     // Dispara Cmd+Enter na aba do Gmail
     const script = `
       tell application "Google Chrome"
+        activate
         repeat with w in windows
-          repeat with t in tabs of w
+          repeat with idx from 1 to (count of tabs of w)
+            set t to tab idx of w
             if (id of t as text) is "${tabId}" then
               set origIdx to active tab index of w
-              set active tab index of w to (get index of t)
+              set active tab index of w to idx
               tell application "System Events"
                 tell process "Google Chrome"
+                  set frontmost to true
                   keystroke return using command down
                 end tell
               end tell
+              delay 0.3
               set active tab index of w to origIdx
-              return
+              return "sent"
             end if
           end repeat
         end repeat
