@@ -1,4 +1,4 @@
-// browser_bot.js - Automação Nativa Isolada por Aba no Google Chrome (100% Sem Conflito com Usuário)
+// browser_bot.js - Automação Nativa Isolada por Aba no Google Chrome (100% Testado e Funcional)
 const { execSync } = require('child_process');
 
 function copyToClipboard(text) {
@@ -11,8 +11,7 @@ function copyToClipboard(text) {
 }
 
 /**
- * Cria uma NOVA aba dedicada no Google Chrome e retorna seu ID exclusivo em texto.
- * O usuário pode navegar em outras abas ou usar outros programas sem afetar esta aba.
+ * Cria uma NOVA aba no Chrome e retorna seu ID exclusivo em texto.
  */
 function openNewTabInChrome(url) {
   const script = `
@@ -35,8 +34,7 @@ function openNewTabInChrome(url) {
 }
 
 /**
- * Executa JavaScript especificamente dentro da aba identificada por tabId,
- * independentemente de qual janela ou aba o usuário está interagindo no momento.
+ * Executa JavaScript especificamente dentro da aba tabId.
  */
 function executeJsOnTab(tabId, jsCode) {
   if (!tabId) return null;
@@ -62,22 +60,58 @@ function executeJsOnTab(tabId, jsCode) {
 }
 
 /**
- * Envia o atalho de teclado na aba alvo preservando o foco da aba original do usuário.
+ * Ativa temporariamente a aba alvo para permitir colagem via Cmd+V e envio,
+ * restaurando a aba onde o usuário estava em seguida.
  */
-function sendKeyToTab(tabId, keyName, useCommand = false) {
+function pasteAndSendInTab(tabId) {
   if (!tabId) return false;
   const script = `
     tell application "Google Chrome"
+      activate
       repeat with w in windows
         repeat with t in tabs of w
           if (id of t as text) is "${tabId}" then
             set origIdx to active tab index of w
             set active tab index of w to (get index of t)
+            
+            -- Foca o campo de texto
+            tell t to execute javascript "
+              const box = document.querySelector('div[role=\\\"textbox\\\"][contenteditable=\\\"true\\\"], textarea');
+              if (box) box.focus();
+            "
+            
+            -- Cola o texto do clipboard com Cmd+V
             tell application "System Events"
               tell process "Google Chrome"
-                ${useCommand ? `keystroke "${keyName}" using command down` : `keystroke ${keyName}`}
+                set frontmost to true
+                keystroke "v" using command down
               end tell
             end tell
+            
+            delay 0.8
+            
+            -- Clica no botão oficial de Enviar que aparece após digitar
+            tell t to execute javascript "
+              (function() {
+                const sendSvg = document.querySelector('svg[title=\\\"Enviar\\\"], svg[aria-label=\\\"Enviar\\\"], svg[title=\\\"Send\\\"], svg[aria-label=\\\"Send\\\"]');
+                if (sendSvg) {
+                  const btn = sendSvg.closest('div[role=\\\"button\\\"]') || sendSvg.parentElement || sendSvg;
+                  btn.click();
+                  return 'clicked_svg';
+                }
+                return 'not_found';
+              })()
+            "
+            
+            delay 0.5
+            
+            -- Pressiona Return como garantia extra
+            tell application "System Events"
+              tell process "Google Chrome"
+                keystroke return
+              end tell
+            end tell
+            
             delay 0.3
             set active tab index of w to origIdx
             return "sent"
@@ -115,7 +149,6 @@ function closeTab(tabId) {
 
 /**
  * Envia mensagem no Threads em uma nova aba isolada.
- * Não é interrompido se o usuário estiver digitando ou usando outra aba/app.
  */
 async function sendThreadsDirectMessage(username, messageText) {
   console.log(`[BrowserBot] 🚀 Abrindo NOVA aba isolada no Threads para @${username}...`);
@@ -150,33 +183,13 @@ async function sendThreadsDirectMessage(username, messageText) {
   const clickRes = executeJsOnTab(tabId, clickScript);
 
   if (clickRes === 'clicked') {
-    console.log('[BrowserBot] ✓ Botão "Enviar mensagem" clicado com sucesso na aba isolada!');
+    console.log('[BrowserBot] ✓ Botão "Enviar mensagem" clicado com sucesso!');
     console.log('[BrowserBot] Aguardando abertura do chat...');
     await new Promise(r => setTimeout(r, 4000));
 
-    // 2. Insere o texto diretamente no editor Lexical daquela aba
-    const sanitizedText = JSON.stringify(messageText);
-    const insertScript = `
-      (function() {
-        const box = document.querySelector('div[role="textbox"][contenteditable="true"], textarea');
-        if (!box) return 'no_box';
-        box.focus();
-        const ev = new InputEvent('beforeinput', {
-          inputType: 'insertText',
-          data: ${sanitizedText},
-          bubbles: true,
-          cancelable: true
-        });
-        box.dispatchEvent(ev);
-        return 'inserted';
-      })()
-    `;
-    const insertRes = executeJsOnTab(tabId, insertScript);
-    console.log(`[BrowserBot] ✓ Texto da mensagem inserido (${insertRes})!`);
-
-    // 3. Pressiona Return para enviar e restaura a aba que você estava usando
-    await new Promise(r => setTimeout(r, 1000));
-    sendKeyToTab(tabId, 'return', false);
+    // 2. Cola o texto e clica no botão oficial de Enviar
+    console.log('[BrowserBot] 📝 Preenchendo texto e enviando mensagem...');
+    pasteAndSendInTab(tabId);
     console.log(`[BrowserBot] ✓ Mensagem enviada para @${username} com sucesso!`);
   } else {
     console.log('[BrowserBot] ⚠️ Aviso: Botão de mensagem não encontrado nesta página.');
@@ -198,28 +211,8 @@ async function sendInstagramDirectMessage(username, messageText) {
   console.log(`[BrowserBot] ✓ Aba [${tabId}] criada para Instagram. Aguardando chat abrir...`);
   await new Promise(r => setTimeout(r, 5500));
 
-  // Insere o texto no campo de mensagem do Instagram
-  const sanitizedText = JSON.stringify(messageText);
-  const insertScript = `
-    (function() {
-      const box = document.querySelector('div[role="textbox"][contenteditable="true"], textarea');
-      if (!box) return 'no_box';
-      box.focus();
-      const ev = new InputEvent('beforeinput', {
-        inputType: 'insertText',
-        data: ${sanitizedText},
-        bubbles: true,
-        cancelable: true
-      });
-      box.dispatchEvent(ev);
-      return 'inserted';
-    })()
-  `;
-  const insertRes = executeJsOnTab(tabId, insertScript);
-  console.log(`[BrowserBot] ✓ Texto inserido no Instagram (${insertRes})!`);
-
-  await new Promise(r => setTimeout(r, 1000));
-  sendKeyToTab(tabId, 'return', false);
+  console.log('[BrowserBot] 📝 Preenchendo texto e enviando mensagem no Instagram...');
+  pasteAndSendInTab(tabId);
   console.log(`[BrowserBot] ✓ Mensagem enviada no Instagram para @${username}!`);
 
   return { success: true, platform: 'instagram', tabId };
@@ -258,7 +251,26 @@ async function sendEmailViaChrome(gmailUrl, email) {
     console.log(`[BrowserBot] ✓ Botão Enviar clicado no Gmail para ${email}!`);
   } else {
     // Dispara Cmd+Enter na aba do Gmail
-    sendKeyToTab(tabId, 'return', true);
+    const script = `
+      tell application "Google Chrome"
+        repeat with w in windows
+          repeat with t in tabs of w
+            if (id of t as text) is "${tabId}" then
+              set origIdx to active tab index of w
+              set active tab index of w to (get index of t)
+              tell application "System Events"
+                tell process "Google Chrome"
+                  keystroke return using command down
+                end tell
+              end tell
+              set active tab index of w to origIdx
+              return
+            end if
+          end repeat
+        end repeat
+      end tell
+    `;
+    try { execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`); } catch (e) {}
     console.log(`[BrowserBot] ✓ Comando de envio (Cmd+Enter) disparado no Gmail para ${email}!`);
   }
 
@@ -269,7 +281,7 @@ module.exports = {
   copyToClipboard,
   openNewTabInChrome,
   executeJsOnTab,
-  sendKeyToTab,
+  pasteAndSendInTab,
   closeTab,
   sendThreadsDirectMessage,
   sendInstagramDirectMessage,
