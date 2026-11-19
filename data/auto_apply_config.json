@@ -14,25 +14,23 @@
       "min": 1800,
       "max": 2000,
       "currency": "BRL",
-      "text": "Minha pretensão salarial para a oportunidade está na faixa de R$ 1.800 a R$ 2.000 / mês (aberto a alinhamento conforme o escopo e modelo da vaga)."
+      "text": "Minha pretensão fica entre R$ 1.800 e R$ 2.000/mês (negociável conforme o escopo)."
     },
     "international": {
       "min": 500,
       "max": 800,
       "currency": "USD",
-      "text": "My salary expectation for this role is in the range of $500 – $800 / month (open to alignment depending on scope and hours)."
+      "text": "My rate is around $500–$800/month, open to alignment based on scope."
     }
   },
   "templates": {
     "pt": {
       "subject": "Designer Gráfico & Web | Endrio Moreira",
-      "intro": "Olá! Tudo bem? Me chamo Endrio.\nVi a oportunidade que você anunciou e tenho grande interesse em colaborar com você e sua equipe!",
-      "body": "Atuo como designer gráfico há mais de 5 anos, com experiência sólida em diversos nichos. Minha especialidade é social media design, além de ter trabalhado em gráfica cuidando de materiais impressos e fechamento de arquivos. Também crio layouts para landing pages e cuido da implementação visual dos projetos.\n\nVocê pode conferir meu portfólio completo com meus trabalhos e contatos aqui:\n👉 Portfólio: https://endriodsgn.vercel.app/\n\n📩 Contatos diretos:\nE-mail: Endriodscontato@gmail.com\nWhatsApp: (21) 96667-2372\nInstagram: @Endriodsgn\n\nAgradeço pela atenção e estou à disposição para conversarmos!\nAtenciosamente,\nEndrio Moreira"
+      "body": "Opa, tudo bem? Vi seu post sobre a vaga de design e me interessei bastante!\n\nAtuo como designer gráfico há mais de 5 anos, focado em social media, materiais impressos e layouts de landing pages.\n\nDá uma olhada no meu portfólio:\n👉 https://endriodsgn.vercel.app/\n\nSe fizer sentido, estou super disponível pra gente bater um papo!\nAbraço,\nEndrio"
     },
     "en": {
       "subject": "Designer | Endrio Moreira",
-      "intro": "Hello! Nice to meet you—my name is Endrio.\nI just came across this opportunity and am very interested.",
-      "body": "I have been working as a graphic designer for over 5 years, with experience across various niches. My specialty is social media design, but I also spent a year working at a print shop, where I gained solid experience with printed materials. Additionally, I create layouts for landing pages and handle the visual implementation for these projects.\n\nYou can find my portfolio—which also includes my contact information—at the link below:\n👉 Portfolio: https://endriodsgn.vercel.app/\n\nThank you for your time and consideration; I look forward to the possibility of speaking with you!\nBest regards,\nEndrio Moreira"
+      "body": "Hey! Saw your post about the design opportunity and would love to help out.\n\nI’m a graphic designer with 5+ years of experience specializing in social media, print materials, and landing page layouts.\n\nYou can check out my portfolio here:\n👉 https://endriodsgn.vercel.app/\n\nHope we can chat!\nBest,\nEndrio"
     }
   },
   "timing": {

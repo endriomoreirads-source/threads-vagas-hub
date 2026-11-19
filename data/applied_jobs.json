@@ -40,5 +40,26 @@
     "appliedAt": 1795111600853,
     "appliedAtISO": "2026-11-19T18:06:40.853Z",
     "notes": "Processado via AutoScheduler (🇧🇷 Português)"
+  },
+  {
+    "jobId": "Df7OW30IJEk",
+    "channel": "threads",
+    "appliedAt": 1795112763003,
+    "appliedAtISO": "2026-11-19T18:26:03.003Z",
+    "notes": "Processado via AutoScheduler (🇧🇷 Português)"
+  },
+  {
+    "jobId": "Df7Mm2HDSL4",
+    "channel": "instagram",
+    "appliedAt": 1795112826541,
+    "appliedAtISO": "2026-11-19T18:27:06.541Z",
+    "notes": "Processado via AutoScheduler (🇺🇸 Inglês)"
+  },
+  {
+    "jobId": "li_4492441834",
+    "channel": "instagram",
+    "appliedAt": 1795112865513,
+    "appliedAtISO": "2026-11-19T18:27:45.513Z",
+    "notes": "Processado via AutoScheduler (🇺🇸 Inglês)"
   }
 ]

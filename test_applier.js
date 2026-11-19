@@ -13,7 +13,7 @@ async function getPendingJobs(limit = 3) {
 
   const candidates = allJobs.filter(j => {
     if (appliedSet.has(j.id)) return false;
-    return j.hasDesignContext || (j.jobTopics && j.jobTopics.includes('design'));
+    return autoApplier.isStrictDesignHiring(j);
   });
 
   candidates.sort((a, b) => (b.takenAt || 0) - (a.takenAt || 0));

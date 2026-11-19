@@ -43,10 +43,10 @@ async function findNextQueueJob() {
   const allJobs = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   const appliedSet = new Set(autoApplier.loadAppliedJobs().map(a => a.jobId));
 
-  // Prioriza vagas de design mais recentes que ainda não foram candidatadas
+  // Prioriza exclusivamente vagas de design com intenção estrita e verificada de contratação
   const candidates = allJobs.filter(j => {
     if (appliedSet.has(j.id)) return false;
-    return j.hasDesignContext || (j.jobTopics && j.jobTopics.includes('design'));
+    return autoApplier.isStrictDesignHiring(j);
   });
 
   if (candidates.length === 0) return null;
@@ -84,15 +84,23 @@ async function processNextJob() {
   // Tenta disparo real no canal correspondente
   let sendResult = { success: false };
   try {
-    if (pkg.primaryChannel === 'instagram' && pkg.contacts.igHandle) {
-      log(`-> Abrindo Instagram para enviar DM a @${pkg.contacts.igHandle} no seu Chrome...`);
-      sendResult = await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body);
-    } else if (pkg.primaryChannel === 'threads' || (!pkg.contacts.primaryEmail && pkg.contacts.authorUsername)) {
-      log(`-> Abrindo Threads para enviar DM a @${pkg.contacts.authorUsername} no seu Chrome...`);
-      sendResult = await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body);
-    } else if (pkg.primaryChannel === 'email' && pkg.urls.gmailUrl) {
+    if (pkg.primaryChannel === 'email' && pkg.urls.gmailUrl) {
       log(`-> Abrindo Gmail no seu Chrome com destinatário (${pkg.contacts.primaryEmail}) e texto prontos...`);
       sendResult = await browserBot.sendEmailViaChrome(pkg.urls.gmailUrl, pkg.contacts.primaryEmail);
+    } else {
+      // 1. Sempre envia no Threads (onde a vaga foi encontrada)
+      log(`-> Abrindo Threads de @${pkg.contacts.authorUsername} no seu Chrome...`);
+      await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body);
+
+      // 2. Se tiver Instagram detectado, envia também no Instagram!
+      if (pkg.contacts.hasExplicitInstagram && pkg.contacts.igHandle) {
+        log(`-> Perfil tem Instagram detectado (@${pkg.contacts.igHandle})! Abrindo para enviar também...`);
+        await new Promise(r => setTimeout(r, 4000));
+        await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body);
+      } else {
+        log(`-> Perfil sem Instagram no post. Enviado exclusivamente no Threads.`);
+      }
+      sendResult = { success: true };
     }
   } catch (err) {
     log(`Aviso ao tentar envio automático: ${err.message}`);
