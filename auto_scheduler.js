@@ -43,10 +43,18 @@ async function findNextQueueJob() {
   const allJobs = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   const appliedSet = new Set(autoApplier.loadAppliedJobs().map(a => a.jobId));
 
+  // Filtro de tempo: Vagas recentes de no máximo 3 dias (72 horas)
+  const THREE_DAYS_SEC = 3 * 24 * 60 * 60;
+  const nowSec = Math.floor(Date.now() / 1000);
+
   // Prioriza exclusivamente vagas de design com intenção estrita e verificada de contratação
   // e NUNCA repete para o mesmo autor/perfil (garantia de perfil único)
   const candidates = allJobs.filter(j => {
     if (appliedSet.has(j.id)) return false;
+
+    // Filtra para garantir que a vaga foi postada nos últimos 3 dias
+    if (j.takenAt && (nowSec - j.takenAt) > THREE_DAYS_SEC) return false;
+
     const author = j.author?.username;
     const ig = j.contacts?.igHandle;
     if (autoApplier.isAuthorAlreadyContacted(author, ig)) return false;
@@ -54,6 +62,7 @@ async function findNextQueueJob() {
   });
 
   if (candidates.length === 0) return null;
+  // Ordena pelas mais recentes primeiro
   candidates.sort((a, b) => (b.takenAt || 0) - (a.takenAt || 0));
   return candidates[0];
 }
@@ -122,12 +131,28 @@ async function processNextJob() {
   return true;
 }
 
+async function triggerLiveThreadsScan() {
+  try {
+    const res = await fetch('http://localhost:3456/api/crawler/trigger', { method: 'POST' });
+    if (res.ok) {
+      log('🔍 Varredura rápida de novas vagas (últimos 3 dias + leitura de imagens via OCR) acionada no Threads!');
+    }
+  } catch (e) {}
+}
+
 async function runDaemon() {
   log('🚀 Iniciando Robô de Candidaturas Automáticas ThreadsJobs (Modo Anti-Ban Ativo)');
+  await triggerLiveThreadsScan();
   const config = autoApplier.loadConfig();
 
+  let cycles = 0;
   while (true) {
     try {
+      cycles++;
+      if (cycles % 2 === 0) {
+        // A cada ~1h aciona nova varredura de vagas recentes
+        triggerLiveThreadsScan();
+      }
       await processNextJob();
     } catch (err) {
       log(`Erro no ciclo do robô: ${err.message}`);

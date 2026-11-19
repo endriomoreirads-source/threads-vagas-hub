@@ -128,7 +128,46 @@ async function sendInstagramDirectMessage(username, messageText) {
 async function sendEmailViaChrome(gmailUrl, email) {
   console.log(`[BrowserBot] 🚀 Abrindo Gmail para ${email} no seu Chrome ativo...`);
   openInChrome(gmailUrl);
-  console.log('[BrowserBot] ✓ Rascunho com Assunto, Mensagem e Portfólio aberto na sua tela!');
+  console.log('[BrowserBot] ✓ Rascunho com Destinatário, Assunto, Mensagem e Portfólio aberto na tela.');
+  console.log('[BrowserBot] Aguardando 6s para carregamento e disparo automático...');
+  await new Promise(r => setTimeout(r, 6000));
+
+  // Tenta clicar no botão Enviar do Gmail via JS
+  const sendScript = `
+    (function() {
+      const all = Array.from(document.querySelectorAll('div[role="button"]'));
+      const sendBtn = all.find(el => {
+        const text = (el.innerText || '').toLowerCase().trim();
+        const label = (el.getAttribute('aria-label') || '').toLowerCase();
+        return text.startsWith('enviar') || text === 'send' || label.includes('enviar') || label.includes('send');
+      });
+      if (sendBtn) {
+        sendBtn.click();
+        return 'sent';
+      }
+      return 'not_found';
+    })()
+  `;
+  const res = executeChromeJs(sendScript);
+
+  if (res === 'sent') {
+    console.log(`[BrowserBot] ✓ Botão Enviar clicado com sucesso no Gmail para ${email}!`);
+  } else {
+    // Dispara atalho de envio oficial do Gmail no macOS (Cmd + Enter)
+    const script = `
+      tell application "System Events"
+        tell process "Google Chrome"
+          set frontmost to true
+          keystroke return using command down
+        end tell
+      end tell
+    `;
+    try {
+      execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
+      console.log(`[BrowserBot] ✓ Atalho de envio (Cmd+Enter) disparado no Gmail para ${email}!`);
+    } catch (e) {}
+  }
+
   return { success: true, platform: 'email' };
 }
 

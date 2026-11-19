@@ -1382,6 +1382,11 @@ app.get('/api/crawler/status', (req, res) => {
   });
 });
 
+app.post('/api/crawler/trigger', async (req, res) => {
+  runBackgroundCrawler().catch(e => console.error('Erro na varredura sob demanda:', e.message));
+  res.json({ success: true, message: 'Varredura recente do Threads acionada com sucesso.' });
+});
+
 app.get('/api/verify/:code', async (req, res) => {
   const { code } = req.params;
   const embedUrl = `https://www.threads.com/t/${encodeURIComponent(code)}/embed/`;
