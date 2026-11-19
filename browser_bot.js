@@ -1,4 +1,4 @@
-// browser_bot.js - Automação Nativa no seu Google Chrome Aberto (100% Sem Captcha)
+// browser_bot.js - Automação Nativa Isolada por Aba no Google Chrome (100% Sem Conflito com Usuário)
 const { execSync } = require('child_process');
 
 function copyToClipboard(text) {
@@ -10,41 +10,79 @@ function copyToClipboard(text) {
   }
 }
 
-function openInChrome(url) {
+/**
+ * Cria uma NOVA aba dedicada no Google Chrome e retorna seu ID exclusivo.
+ * O usuário pode navegar em outras abas ou usar outros programas sem afetar esta aba.
+ */
+function openNewTabInChrome(url) {
   const script = `
     tell application "Google Chrome"
-      activate
-      open location "${url}"
-    end tell
-  `;
-  execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
-}
-
-function executeChromeJs(jsCode) {
-  const script = `
-    tell application "Google Chrome"
-      tell active tab of front window
-        execute javascript "${jsCode.replace(/"/g, '\\"')}"
-      end tell
+      if not (exists front window) then
+        make new window
+      end if
+      set targetWindow to front window
+      set newTab to (make new tab at end of tabs of targetWindow with properties {URL:"${url}"})
+      return (get id of newTab)
     end tell
   `;
   try {
-    return execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { encoding: 'utf8' }).trim();
+    const tabId = execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { encoding: 'utf8' }).trim();
+    return tabId;
+  } catch (err) {
+    console.error('[BrowserBot] Erro ao abrir nova aba no Chrome:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Executa JavaScript especificamente dentro da aba identificada por tabId,
+ * independentemente de qual janela ou aba o usuário está interagindo no momento.
+ */
+function executeJsOnTab(tabId, jsCode) {
+  if (!tabId) return null;
+  const script = `
+    tell application "Google Chrome"
+      repeat with w in windows
+        repeat with t in tabs of w
+          if id of t is ${tabId} then
+            return (execute t javascript "${jsCode.replace(/"/g, '\\"')}")
+          end if
+        end repeat
+      end repeat
+      return "tab_not_found"
+    end tell
+  `;
+  try {
+    const res = execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { encoding: 'utf8' }).trim();
+    return res;
   } catch (err) {
     return null;
   }
 }
 
-function pasteAndSendViaSystemEvents(delaySeconds = 3) {
+/**
+ * Envia o atalho de teclado na aba alvo preservando o foco da aba original do usuário.
+ */
+function sendKeyToTab(tabId, keyName, useCommand = false) {
+  if (!tabId) return false;
   const script = `
-    delay ${delaySeconds}
-    tell application "System Events"
-      tell process "Google Chrome"
-        set frontmost to true
-        keystroke "v" using command down
-        delay 1
-        keystroke return
-      end tell
+    tell application "Google Chrome"
+      repeat with w in windows
+        repeat with t in tabs of w
+          if id of t is ${tabId} then
+            set origIdx to active tab index of w
+            set active tab index of w to (get index of t)
+            tell application "System Events"
+              tell process "Google Chrome"
+                ${useCommand ? `keystroke "${keyName}" using command down` : `keystroke ${keyName}`}
+              end tell
+            end tell
+            delay 0.3
+            set active tab index of w to origIdx
+            return "sent"
+          end if
+        end repeat
+      end repeat
     end tell
   `;
   try {
@@ -55,17 +93,44 @@ function pasteAndSendViaSystemEvents(delaySeconds = 3) {
   }
 }
 
+function closeTab(tabId) {
+  if (!tabId) return;
+  const script = `
+    tell application "Google Chrome"
+      repeat with w in windows
+        repeat with t in tabs of w
+          if id of t is ${tabId} then
+            tell t to close
+            return
+          end if
+        end repeat
+      end repeat
+    end tell
+  `;
+  try {
+    execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
+  } catch (e) {}
+}
+
+/**
+ * Envia mensagem no Threads em uma nova aba isolada.
+ * Não é interrompido se o usuário estiver digitando ou usando outra aba/app.
+ */
 async function sendThreadsDirectMessage(username, messageText) {
-  console.log(`[BrowserBot] 🚀 Abrindo perfil no Threads de @${username}...`);
+  console.log(`[BrowserBot] 🚀 Abrindo NOVA aba isolada no Threads para @${username}...`);
   copyToClipboard(messageText);
 
   const profileUrl = `https://www.threads.com/@${username}`;
-  openInChrome(profileUrl);
+  const tabId = openNewTabInChrome(profileUrl);
 
-  console.log('[BrowserBot] ✓ Perfil aberto no Chrome. Aguardando 4.5s de carregamento...');
+  if (!tabId) {
+    throw new Error('Não foi possível criar uma nova aba no Chrome.');
+  }
+
+  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada. Aguardando carregamento do perfil...`);
   await new Promise(r => setTimeout(r, 4500));
 
-  // Tenta clicar no botão "Enviar mensagem" ou "Mensagem" via JavaScript se permitido no Chrome
+  // 1. Clica no botão "Enviar mensagem" dentro daquela aba específica
   const clickScript = `
     (function() {
       const all = Array.from(document.querySelectorAll('div[role="button"], button, span, a'));
@@ -81,58 +146,94 @@ async function sendThreadsDirectMessage(username, messageText) {
       return 'not_found';
     })()
   `;
-  const result = executeChromeJs(clickScript);
+  const clickRes = executeJsOnTab(tabId, clickScript);
 
-  if (result === 'clicked') {
-    console.log('[BrowserBot] ✓ Botão de Mensagem clicado automaticamente!');
-    await new Promise(r => setTimeout(r, 2500));
+  if (clickRes === 'clicked') {
+    console.log('[BrowserBot] ✓ Botão "Enviar mensagem" clicado com sucesso na aba isolada!');
+    await new Promise(r => setTimeout(r, 3500));
 
-    // Foca na caixa de mensagem aberta
-    const focusScript = `
+    // 2. Insere o texto diretamente no editor Lexical daquela aba
+    const sanitizedText = JSON.stringify(messageText);
+    const insertScript = `
       (function() {
-        const box = document.querySelector('div[contenteditable="true"], textarea, div[role="textbox"]');
-        if (box) { box.focus(); return 'focused'; }
-        return 'not_found';
+        const box = document.querySelector('div[role="textbox"][contenteditable="true"], textarea');
+        if (!box) return 'no_box';
+        box.focus();
+        const ev = new InputEvent('beforeinput', {
+          inputType: 'insertText',
+          data: ${sanitizedText},
+          bubbles: true,
+          cancelable: true
+        });
+        box.dispatchEvent(ev);
+        return 'inserted';
       })()
     `;
-    executeChromeJs(focusScript);
-    await new Promise(r => setTimeout(r, 800));
+    const insertRes = executeJsOnTab(tabId, insertScript);
 
-    pasteAndSendViaSystemEvents(1);
-    console.log(`[BrowserBot] ✓ Mensagem colada e enviada para @${username}!`);
+    // 3. Pressiona Return para enviar e restaura a aba que você estava usando
+    await new Promise(r => setTimeout(r, 800));
+    sendKeyToTab(tabId, 'return', false);
+    console.log(`[BrowserBot] ✓ Mensagem enviada para @${username} com sucesso!`);
   } else {
-    console.log('[BrowserBot] ⚠️ O Chrome bloqueou a execução de script para clicar no botão.');
-    console.log('[BrowserBot] 👉 Para ativar: Menu do Chrome > Visualização > Desenvolvedor > "Permitir o JavaScript do Eventos da Apple"');
-    console.log('[BrowserBot] 📋 A mensagem já está na sua área de transferência (Cmd+V).');
-    pasteAndSendViaSystemEvents(3);
+    console.log('[BrowserBot] ⚠️ Aviso: Botão de mensagem não encontrado ou bloqueado pelo Chrome.');
+    console.log('             (Certifique-se de que "Visualização > Desenvolvedor > Permitir JavaScript de Eventos da Apple" está marcado).');
   }
 
-  return { success: true, platform: 'threads' };
+  return { success: true, platform: 'threads', tabId };
 }
 
+/**
+ * Envia mensagem no Instagram em uma nova aba isolada.
+ */
 async function sendInstagramDirectMessage(username, messageText) {
-  console.log(`[BrowserBot] 🚀 Abrindo chat direto no Instagram com @${username}...`);
+  console.log(`[BrowserBot] 🚀 Abrindo NOVA aba isolada no Instagram para @${username}...`);
   copyToClipboard(messageText);
 
   const dmUrl = `https://ig.me/m/${username}`;
-  openInChrome(dmUrl);
+  const tabId = openNewTabInChrome(dmUrl);
 
-  console.log('[BrowserBot] ✓ Chat do Instagram aberto no Chrome. Aguardando...');
-  await new Promise(r => setTimeout(r, 5000));
+  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada para Instagram. Aguardando chat abrir...`);
+  await new Promise(r => setTimeout(r, 5500));
 
-  pasteAndSendViaSystemEvents(2);
+  // Insere o texto no campo de mensagem do Instagram
+  const sanitizedText = JSON.stringify(messageText);
+  const insertScript = `
+    (function() {
+      const box = document.querySelector('div[role="textbox"][contenteditable="true"], textarea');
+      if (!box) return 'no_box';
+      box.focus();
+      const ev = new InputEvent('beforeinput', {
+        inputType: 'insertText',
+        data: ${sanitizedText},
+        bubbles: true,
+        cancelable: true
+      });
+      box.dispatchEvent(ev);
+      return 'inserted';
+    })()
+  `;
+  executeJsOnTab(tabId, insertScript);
+
+  await new Promise(r => setTimeout(r, 800));
+  sendKeyToTab(tabId, 'return', false);
   console.log(`[BrowserBot] ✓ Mensagem enviada no Instagram para @${username}!`);
-  return { success: true, platform: 'instagram' };
+
+  return { success: true, platform: 'instagram', tabId };
 }
 
+/**
+ * Envia e-mail pelo Gmail em uma nova aba isolada.
+ */
 async function sendEmailViaChrome(gmailUrl, email) {
-  console.log(`[BrowserBot] 🚀 Abrindo Gmail para ${email} no seu Chrome ativo...`);
-  openInChrome(gmailUrl);
-  console.log('[BrowserBot] ✓ Rascunho com Destinatário, Assunto, Mensagem e Portfólio aberto na tela.');
-  console.log('[BrowserBot] Aguardando 6s para carregamento e disparo automático...');
+  console.log(`[BrowserBot] 🚀 Abrindo NOVA aba no Gmail para ${email}...`);
+  const tabId = openNewTabInChrome(gmailUrl);
+
+  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada com Destinatário, Assunto e Mensagem.`);
+  console.log('[BrowserBot] Aguardando 6s para carregamento do Gmail...');
   await new Promise(r => setTimeout(r, 6000));
 
-  // Tenta clicar no botão Enviar do Gmail via JS
+  // Tenta clicar no botão Enviar via JS na aba isolada
   const sendScript = `
     (function() {
       const all = Array.from(document.querySelectorAll('div[role="button"]'));
@@ -148,33 +249,25 @@ async function sendEmailViaChrome(gmailUrl, email) {
       return 'not_found';
     })()
   `;
-  const res = executeChromeJs(sendScript);
+  const res = executeJsOnTab(tabId, sendScript);
 
   if (res === 'sent') {
-    console.log(`[BrowserBot] ✓ Botão Enviar clicado com sucesso no Gmail para ${email}!`);
+    console.log(`[BrowserBot] ✓ Botão Enviar clicado no Gmail para ${email}!`);
   } else {
-    // Dispara atalho de envio oficial do Gmail no macOS (Cmd + Enter)
-    const script = `
-      tell application "System Events"
-        tell process "Google Chrome"
-          set frontmost to true
-          keystroke return using command down
-        end tell
-      end tell
-    `;
-    try {
-      execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
-      console.log(`[BrowserBot] ✓ Atalho de envio (Cmd+Enter) disparado no Gmail para ${email}!`);
-    } catch (e) {}
+    // Dispara Cmd+Enter na aba do Gmail
+    sendKeyToTab(tabId, 'return', true);
+    console.log(`[BrowserBot] ✓ Comando de envio (Cmd+Enter) disparado no Gmail para ${email}!`);
   }
 
-  return { success: true, platform: 'email' };
+  return { success: true, platform: 'email', tabId };
 }
 
 module.exports = {
   copyToClipboard,
-  openInChrome,
-  executeChromeJs,
+  openNewTabInChrome,
+  executeJsOnTab,
+  sendKeyToTab,
+  closeTab,
   sendThreadsDirectMessage,
   sendInstagramDirectMessage,
   sendEmailViaChrome
