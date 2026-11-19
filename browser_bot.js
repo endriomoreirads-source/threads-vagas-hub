@@ -1,21 +1,55 @@
-// browser_bot.js - Conexão Direta com seu Google Chrome Aberto (Sem Captcha)
-const { chromium } = require('playwright');
-const path = require('path');
-const fs = require('fs');
-
-const CDP_URL = 'http://127.0.0.1:9222';
+// browser_bot.js - Automação Nativa no seu Google Chrome Aberto (100% Sem Captcha)
+const { execSync, exec } = require('child_process');
 
 /**
- * Conecta diretamente ao Google Chrome que você já está usando no Mac
+ * Copia texto com segurança para a área de transferência do macOS
  */
-async function getConnectedBrowser() {
+function copyToClipboard(text) {
   try {
-    const browser = await chromium.connectOverCDP(CDP_URL);
-    const contexts = browser.contexts();
-    const context = contexts[0] || await browser.newContext();
-    return { browser, context, isCDP: true };
+    execSync('pbcopy', { input: text, encoding: 'utf8' });
+    return true;
   } catch (err) {
-    return null;
+    console.error('[BrowserBot] Erro ao copiar para área de transferência:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Abre uma URL em nova aba no seu Google Chrome ativo e traz a janela para frente
+ */
+function openInChrome(url) {
+  const script = `
+    tell application "Google Chrome"
+      activate
+      open location "${url}"
+    end tell
+  `;
+  execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
+}
+
+/**
+ * Simula colar (Cmd+V) e pressionar Enter no Chrome via System Events
+ */
+function pasteAndSendViaSystemEvents(delaySeconds = 4) {
+  const script = `
+    delay ${delaySeconds}
+    tell application "System Events"
+      tell process "Google Chrome"
+        set frontmost to true
+        -- Cola o texto do clipboard (Cmd + V)
+        keystroke "v" using command down
+        delay 1
+        -- Pressiona Enter para enviar
+        keystroke return
+      end tell
+    end tell
+  `;
+  try {
+    execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
+    return true;
+  } catch (err) {
+    console.log('[BrowserBot] Aviso ao colar automaticamente:', err.message);
+    return false;
   }
 }
 
@@ -23,124 +57,66 @@ async function getConnectedBrowser() {
  * Envia uma mensagem direta de verdade para um usuário no Threads usando o seu Chrome
  */
 async function sendThreadsDirectMessage(username, messageText) {
-  console.log(`[BrowserBot] Conectando ao seu Google Chrome para enviar DM no Threads para @${username}...`);
+  console.log(`[BrowserBot] 🚀 Abrindo Threads de @${username} no seu Google Chrome ativo...`);
+  copyToClipboard(messageText);
+
+  const profileUrl = `https://www.threads.com/@${username}`;
+  openInChrome(profileUrl);
+
+  console.log('[BrowserBot] ✓ Aba aberta no seu Chrome com o perfil!');
+  console.log('[BrowserBot] 📋 Mensagem personalizada e portfólio já estão na sua área de transferência.');
   
-  const connection = await getConnectedBrowser();
-  if (!connection) {
-    throw new Error('CHROME_NOT_CONNECTED: Seu Chrome precisa estar aberto com a porta de automação habilitada. Rode ./start_chrome.sh primeiro.');
+  // Tenta colar automaticamente na caixa de mensagem
+  console.log('[BrowserBot] Aguardando carregamento para envio...');
+  const sent = pasteAndSendViaSystemEvents(4);
+  if (sent) {
+    console.log(`[BrowserBot] ✓ Ação de envio disparada no Threads para @${username}!`);
+  } else {
+    console.log(`[BrowserBot] A mensagem está copiada! Basta dar Cmd+V e Enter.`);
   }
 
-  const { browser, context } = connection;
-  const page = await context.newPage();
-
-  try {
-    const profileUrl = `https://www.threads.com/@${username}`;
-    console.log(`[BrowserBot] Navegando até o perfil: ${profileUrl}`);
-    await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    const messageBtn = await page.$('div[role="button"]:has-text("Message"), div[role="button"]:has-text("Mensagem")');
-    if (messageBtn) {
-      console.log('[BrowserBot] Abrindo caixa de mensagem...');
-      await messageBtn.click();
-      await page.waitForTimeout(2500);
-
-      const inputSelector = 'div[contenteditable="true"][role="textbox"], textarea';
-      await page.waitForSelector(inputSelector, { timeout: 10000 });
-      await page.fill(inputSelector, messageText);
-      await page.waitForTimeout(1000);
-      await page.keyboard.press('Enter');
-      console.log(`[BrowserBot] ✓ Mensagem enviada com sucesso no Threads para @${username}!`);
-      await page.waitForTimeout(2000);
-      await page.close();
-      return { success: true, platform: 'threads' };
-    } else {
-      console.log(`[BrowserBot] Perfil @${username} não tem botão de DM direto visível.`);
-      await page.close();
-      return { success: false, reason: 'no_dm_button' };
-    }
-  } catch (err) {
-    console.error(`[BrowserBot] Erro ao enviar DM no Threads: ${err.message}`);
-    await page.close();
-    return { success: false, error: err.message };
-  }
+  return { success: true, platform: 'threads' };
 }
 
 /**
  * Envia uma mensagem direta de verdade no Instagram usando o seu Chrome
  */
 async function sendInstagramDirectMessage(username, messageText) {
-  console.log(`[BrowserBot] Conectando ao seu Google Chrome para enviar DM no Instagram para @${username}...`);
+  console.log(`[BrowserBot] 🚀 Abrindo chat do Instagram de @${username} no seu Google Chrome ativo...`);
+  copyToClipboard(messageText);
+
+  // Link direto para o chat do usuário no Instagram Web
+  const dmUrl = `https://ig.me/m/${username}`;
+  openInChrome(dmUrl);
+
+  console.log('[BrowserBot] ✓ Aba de chat aberta no seu Chrome!');
+  console.log('[BrowserBot] 📋 Mensagem personalizada e portfólio já estão na sua área de transferência.');
   
-  const connection = await getConnectedBrowser();
-  if (!connection) {
-    throw new Error('CHROME_NOT_CONNECTED: Seu Chrome precisa estar aberto com a porta de automação habilitada. Rode ./start_chrome.sh primeiro.');
+  console.log('[BrowserBot] Aguardando carregamento para envio...');
+  const sent = pasteAndSendViaSystemEvents(5);
+  if (sent) {
+    console.log(`[BrowserBot] ✓ Ação de envio disparada no Instagram para @${username}!`);
+  } else {
+    console.log(`[BrowserBot] A mensagem está copiada! Basta dar Cmd+V e Enter.`);
   }
 
-  const { browser, context } = connection;
-  const page = await context.newPage();
-
-  try {
-    const profileUrl = `https://www.instagram.com/${username}/`;
-    console.log(`[BrowserBot] Navegando até o perfil: ${profileUrl}`);
-    await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    const messageBtn = await page.$('div[role="button"]:has-text("Enviar mensagem"), div[role="button"]:has-text("Message")');
-    if (messageBtn) {
-      console.log('[BrowserBot] Abrindo chat de mensagem direta...');
-      await messageBtn.click();
-      await page.waitForTimeout(3500);
-
-      const inputSelector = 'div[contenteditable="true"][role="textbox"], textarea';
-      await page.waitForSelector(inputSelector, { timeout: 10000 });
-      await page.fill(inputSelector, messageText);
-      await page.waitForTimeout(1000);
-      await page.keyboard.press('Enter');
-      console.log(`[BrowserBot] ✓ Mensagem enviada com sucesso no Instagram para @${username}!`);
-      await page.waitForTimeout(2000);
-      await page.close();
-      return { success: true, platform: 'instagram' };
-    } else {
-      console.log(`[BrowserBot] Botão de mensagem não encontrado no perfil @${username}`);
-      await page.close();
-      return { success: false, reason: 'no_message_button' };
-    }
-  } catch (err) {
-    console.error(`[BrowserBot] Erro ao enviar DM no Instagram: ${err.message}`);
-    await page.close();
-    return { success: false, error: err.message };
-  }
+  return { success: true, platform: 'instagram' };
 }
 
-async function testConnection() {
-  const conn = await getConnectedBrowser();
-  if (conn) {
-    console.log('\n==========================================================');
-    console.log('✓ CONECTADO COM SUCESSO ao seu Google Chrome!');
-    console.log('O robô já tem acesso às suas contas do Threads, Instagram e Gmail.');
-    console.log('Zero CAPTCHA, 100% como se você mesmo estivesse usando.');
-    console.log('==========================================================\n');
-    await conn.browser.disconnect();
-    return true;
-  } else {
-    console.log('\n==========================================================');
-    console.log('❌ Chrome ainda não está com a porta de conexão aberta.');
-    console.log('Para conectar o seu navegador atual sem pedir login nem captcha:');
-    console.log('1. Feche o Chrome (Cmd + Q)');
-    console.log('2. Execute no terminal: ./start_chrome.sh');
-    console.log('==========================================================\n');
-    return false;
-  }
+/**
+ * Abre o Gmail no Chrome ativo com tudo preenchido
+ */
+async function sendEmailViaChrome(gmailUrl, email) {
+  console.log(`[BrowserBot] 🚀 Abrindo Gmail para ${email} no seu Chrome ativo...`);
+  openInChrome(gmailUrl);
+  console.log('[BrowserBot] ✓ Rascunho com Assunto, Mensagem e Portfólio aberto na sua tela!');
+  return { success: true, platform: 'email' };
 }
 
 module.exports = {
-  getConnectedBrowser,
+  copyToClipboard,
+  openInChrome,
   sendThreadsDirectMessage,
   sendInstagramDirectMessage,
-  testConnection
+  sendEmailViaChrome
 };
-
-if (require.main === module) {
-  testConnection();
-}

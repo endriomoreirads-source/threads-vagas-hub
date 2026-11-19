@@ -85,15 +85,14 @@ async function processNextJob() {
   let sendResult = { success: false };
   try {
     if (pkg.primaryChannel === 'instagram' && pkg.contacts.igHandle) {
-      log(`-> Abrindo Instagram para enviar DM a @${pkg.contacts.igHandle}...`);
-      sendResult = await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body, { headless: false });
+      log(`-> Abrindo Instagram para enviar DM a @${pkg.contacts.igHandle} no seu Chrome...`);
+      sendResult = await browserBot.sendInstagramDirectMessage(pkg.contacts.igHandle, pkg.body);
     } else if (pkg.primaryChannel === 'threads' || (!pkg.contacts.primaryEmail && pkg.contacts.authorUsername)) {
-      log(`-> Abrindo Threads para enviar DM a @${pkg.contacts.authorUsername}...`);
-      sendResult = await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body, { headless: false });
+      log(`-> Abrindo Threads para enviar DM a @${pkg.contacts.authorUsername} no seu Chrome...`);
+      sendResult = await browserBot.sendThreadsDirectMessage(pkg.contacts.authorUsername, pkg.body);
     } else if (pkg.primaryChannel === 'email' && pkg.urls.gmailUrl) {
-      log(`-> Abrindo Gmail no navegador com destinatário (${pkg.contacts.primaryEmail}) e texto prontos...`);
-      exec(`open "${pkg.urls.gmailUrl}"`);
-      sendResult = { success: true, platform: 'email' };
+      log(`-> Abrindo Gmail no seu Chrome com destinatário (${pkg.contacts.primaryEmail}) e texto prontos...`);
+      sendResult = await browserBot.sendEmailViaChrome(pkg.urls.gmailUrl, pkg.contacts.primaryEmail);
     }
   } catch (err) {
     log(`Aviso ao tentar envio automático: ${err.message}`);
