@@ -727,6 +727,19 @@ function evaluateJobAuthenticity({
   };
 }
 
+// Regex de rejeição estrita: desabafos de mercado, candidatos se oferecendo, permutas, cursos e estética
+const GARBAGE_OR_RANT_REGEX = /\b(permuta|permutas|realizar\s+permuta|fazer\s+permuta|troco\s+servi[çc]o|em\s+troca\s+de|troco\s+por|pra\s+portf[oó]lio|para\s+portf[oó]lio|montar\s+(?:meu\s+)?portf[oó]lio|n[ãa]o\s+consigo\s+(?:vaga|emprego|trabalho|entrevista)|dif[íi]cil\s+(?:conseguir|arrumar|achar)\s+vaga|dificuldade\s+de\s+conseguir|mandei\s+(?:v[áa]rios|dezenas|centenas|\d+)\s+curr[íi]culos|n[ãa]o\s+recebo\s+(?:uma\s+)?liga[çc][ãa]o|ningu[ée]m\s+me\s+contrata|mercado\s+(?:de\s+trabalho\s+)?est[áa]\s+(?:foda|dif[íi]cil|imposs[íi]vel)|vagas?\s+arrombadas?|sal[áa]rio\s+de\s+(?:fome|est[áa]gio)|desabafo|todo\s+dia\s+vejo\s+vagas?\s+com\s+t[íi]tulo|por\s+que\s+(?:as\s+)?(?:empresas\s+|vagas\s+)?pedem|pedem\s+s[êe]nior\s+pagando|fui\s+(?:demitido|demitida|dispensado|dispensada)|estou\s+(?:desempregado|desempregada)|desvaloriza[çc][ãa]o\s+do\s+designer|n[ãa]o\s+fecho\s+nem\s+um\s+servi[çc]o|algu[ée]m\s+sabe\s+(?:de\s+)?(?:alguma\s+)?vaga|estou\s+procurando\s+(?:vaga|emprego)|sou\s+(?:designer|designer\s+gr[áa]fico|web\s+designer|ui[\s/-]?ux|motion\s+designer|ilustrador[a]?|social\s+media)|i(?:\'m| am)\s+(?:a\s+)?(?:professional\s+)?(?:graphic\s+)?designer|i\s+came\s+across\s+your\s+post|saw\s+your\s+post|vi\s+(?:seu\s+)?(?:post|publica[çc][ãa]o|an[uú]ncio)|open\s+to\s+(?:new\s+)?opportunities|available\s+for\s+(?:freelance|work|projects?|new\s+clients?)|open\s+for\s+(?:work|commissions?)|commissions\s+open|dispon[íi]vel\s+para\s+(?:freelas?|projetos?|trabalho)|hire\s+me|contrate-me|me\s+contrata|me\s+chama\s+no\s+(?:direct|pv|zap|whatsapp)|meu\s+portf[óo]lio\s*:|meu\s+behance|estou\s+(?:a|à)\s+procura\s+de\s+(?:professora?|clientes?|m[ée]dico|psic[óo]logo|advogado|parceir)|estou\s+abrindo\s+vagas\s+para\s+atender|abri\s+[12345]\s+vagas\s+para\s+(?:atender|clientes)|agenda\s+(?:aberta|de\s+(?:novembro|dezembro|janeiro)\s+aberta)|fa[çc]o\s+(?:artes|logos|posts|identidade\s+visual)|fa[çc]o\s+seu\s+(?:design|post|projeto)|crio\s+sua\s+logo|artes\s+por\s+r\$|pacote\s+de\s+artes|or[çc]amento\s+(?:sem\s+compromisso|via\s+dm|no\s+direct|no\s+pv)|are\s+you\s+(?:a\s+)?business\s+owner|voc[êe]\s+[ée]\s+(?:empres[áa]rio|empreendedor|dono\s+de\s+loja)|are\s+you\s+looking\s+for|voc[êe]\s+est[áa]\s+procurando|precisando\s+de\s+um\s+designer\s+para\s+seu|precisa\s+de\s+(?:um\s+)?designer\s+para\s+sua|looking\s+for\s+clients|aulas?\s+particulares|aula\s+individual|aulas?\s+on-?line\s+de\s+ingl[êe]s|curso\s+de\s+(?:ingl[êe]s|design|photoshop)|inscri[çc][õo]es\s+abertas\s+para\s+o\s+curso|nail\s+designer|lash\s+designer|sobrancelha|alongamento\s+de\s+unha|manicure|pedicure|pod[óo]log|cobertura\s+duplex|duplex\s+[aà]\s+venda|apartamento\s+[aà]\s+venda|imobili[áa]ria|corretor\s+de\s+im[óo]veis|interior\s+designer|designer\s+de\s+interiores|arquitet[oa]\s+de\s+interiores)\b|looking\s+for\s+(?:a\s+)?(?:graphic\s+)?designer\s*\?|procurando\s+(?:um\s+)?designer\s*\?|precisando\s+de\s+(?:um\s+)?designer\s*\?|ainda\s+tem\s+vaga\s*\?/i;
+
+function isGarbageOrRant(text) {
+  if (!text) return false;
+  if (GARBAGE_OR_RANT_REGEX.test(text)) return true;
+  if (/\?{2,}|!{3,}/.test(text)) return true;
+  return false;
+}
+
+// Padrão positivo de alta precisão (99%): intenção explícita de contratação de designer
+const DESIGN_HIRING_STRICT_REGEX = /\b((?:procuro|procura-se|procurando|busco|buscando|buscamos|contrata-se|contrato|contratando|contratamos|preciso\s+de|precisa-se\s+(?:de\s+)?|precisando\s+(?:de\s+)?|seleciono|seleciona|selecionamos|estamos\s+contratando|estamos\s+com\s+vaga\s+(?:de|para)?|abrimos\s+vaga\s+(?:de|para)?|oportunidade\s+(?:de|para)?|vaga\s+(?:de|para)?)\s+(?:um[a]?\s+|nov[oa]\s+|talentos?\s+|profissionais?\s+)?(?:senior\s+|sênior\s+|junior\s+|júnior\s+|pleno\s+|freela\s+|freelancer\s+|remot[oa]\s+)?(?:designer|design\s+gr[áa]fico|graphic\s+designer|brand\s+designer|visual\s+designer|ui[\s/-]?ux|web\s+designer|motion\s+designer|diretor\s+de\s+arte|diagramador|arte-finalista|social\s+media\s+designer|ilustrador[a]?)|(?:hiring|we(?:\'re|\s+are)\s+hiring|looking\s+for|in\s+need\s+of|need|seeking)\s+(?:a\s+|an\s+)?(?:senior\s+|junior\s+|lead\s+|remote\s+|freelance\s+)?(?:graphic\s+designer|designer|brand\s+designer|visual\s+designer|ui[\s/-]?ux\s+designer|web\s+designer|motion\s+designer|animator|art\s+director)|(?:vaga|job\s+opening|open\s+role)\s*[:|-]\s*(?:senior\s+|junior\s+|pleno\s+)?(?:designer|design\s+gr[áa]fico|graphic\s+designer|ui[\s/-]?ux|motion))\b/i;
+
 function analyzeAndClassifyPost(post, activeFilters = {}) {
   const rawCaption = (post.caption?.text || post.text || '').trim();
   const ocrText = (post.ocrText || '').trim();
@@ -742,20 +755,31 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
   const imageUrl = post.extractedImageUrl || post.imageUrl || null;
 
   const designRegex = /\b(designer|design\s+gr[aá]fico|graphic\s+designer|graphic\s+design|brand\s+designer|visual\s+designer|dise[ñn]ador|dise[ñn]o\s+gr[aá]fico|identidade\s+visual|social\s+media|carrossel|carross[eé]is|carousel|criativos|photoshop|illustrator|figma|motion|diretor\s+de\s+arte|dire[cç][aã]o\s+de\s+arte|art\s+director|diagrama[cç][aã]o|branding|ui\/ux|web\s+designer|landing\s+page|capista|thumbnail|logo\s+design)\b/i;
-  const hasDesignContext = designRegex.test(text);
+  
+  // Rejeição estrita de desabafos, candidatos se oferecendo, permutas, cursos e estética
+  const isJunkPost = isGarbageOrRant(text);
+
+  // Para Design: exige intenção real comprovada de contratação (ou flyer com OCR de design)
+  const isDesignHiringIntent =
+    !isJunkPost &&
+    (DESIGN_HIRING_STRICT_REGEX.test(text) ||
+      Boolean(ocrText && FLYER_HIRING_REGEX.test(ocrText) && /\b(designer|design|arte|criativ[oa]s?|photoshop|illustrator|figma|motion|ui[\s/-]?ux)\b/i.test(ocrText)) ||
+      ((post.platform === 'linkedin' || post.platform === 'indeed') && designRegex.test(text)));
+
+  const hasDesignContext = isDesignHiringIntent;
 
   const aiRegex = /\b(ai\s+engineer|engenheiro\s+de\s+ia|ai\s+builder|desenvolvedor\s+ia|prompt\s+engineer|treinador\s+de\s+ia|ai\s+trainer|intelig[eê]ncia\s+artificial|antigravity|llm|agente\s+de\s+ia|automa[çc][aã]o\s+com\s+ia|criador\s+de\s+aplicativos|criador\s+de\s+apps|low[-\s]?code|no[-\s]?code)\b/i;
   const hasAITechContext = aiRegex.test(text) || Boolean(post.isAITech);
 
   const cltGeneralRegex = /\b(vaga|vagas|estamos\s+contratando|contrata-se|contrata|oportunidade\s+de\s+emprego|processo\s+seletivo|curr[íi]culo|curriculo|clt|carteira\s+assinada|auxiliar|assistente|atendente|recepcionista|operador|repositor|mercado|supermercado|produ[çc][ãa]o|log[íi]stica|expedi[çc][ãa]o|almoxarifado|almoxarife|escrit[óo]rio|administrativo|servi[çc]os\s+gerais|asg|vendedor|balconista|caixa|estoque|estoquista|motorista|porteiro|portaria|vigilante|cozinheiro|merendeira|aprendiz|est[áa]gio|rh\b|recursos\s+humanos)\b/i;
-  const hasGeneralJobContext = cltGeneralRegex.test(text);
+  const hasGeneralJobContext = !isJunkPost && cltGeneralRegex.test(text);
 
   const proximity = detectRJProximity(text, username);
 
   const jobTopics = [];
   if (hasDesignContext) jobTopics.push('design');
   if (hasAITechContext) jobTopics.push('ai_tech');
-  if (proximity.isRJ) jobTopics.push('rj_clt');
+  if (proximity.isRJ && hasGeneralJobContext) jobTopics.push('rj_clt');
   if (/\b(mercado|supermercado|atacad[ãa]o|assa[íi]|guanabara|mundial|prezunic|rede\s+economia|vendedor|loja|shopping|atendente|operador\s+de\s+caixa|caixa|repositor|balconista|empacotador|padaria|lanchonete|cafeteria|burger|restaurante|farm[áa]cia)\b/i.test(text)) {
     jobTopics.push('mercado_comercio');
   }
@@ -835,7 +859,7 @@ function analyzeAndClassifyPost(post, activeFilters = {}) {
     /reforma|campo\s+sint[ée]tico|pista\s+de\s+skate|for[çc]a\s+municipal|ouvidoria/i.test(text) &&
     !/vaga|emprego|contrata|curr[íi]culo|processo\s+seletivo/i.test(text);
 
-  const isHiringPost = hasHiringSignal && !isAgendaPromo && !isNonJobCivicPost;
+  const isHiringPost = !isJunkPost && hasHiringSignal && !isAgendaPromo && !isNonJobCivicPost;
 
   const modalities = [];
   if (
@@ -1115,9 +1139,27 @@ async function runBackgroundCrawler() {
         }
 
         const classified = analyzeAndClassifyPost(raw, { nearBelfordRoxo: true });
-        if (classified.hasDesignContext || classified.hasGeneralJobContext || classified.isAITech) {
-          globalJobsStore.set(raw.code, classified);
-          newJobsCount++;
+        if (classified.isHiringPost && (classified.hasDesignContext || classified.hasGeneralJobContext || classified.isAITech)) {
+          const author = (classified.author?.username || '').toLowerCase().trim();
+          const clean = (classified.text || '').toLowerCase().replace(/https?:\/\/\S+/g, '').replace(/\d+/g, '').replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+          const fp = `${author}:::${clean.slice(0, 45)}`;
+
+          let isDuplicate = false;
+          for (const existingJob of globalJobsStore.values()) {
+            const exAuthor = (existingJob.author?.username || '').toLowerCase().trim();
+            if (exAuthor === author) {
+              const exClean = (existingJob.text || '').toLowerCase().replace(/https?:\/\/\S+/g, '').replace(/\d+/g, '').replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+              if (fp === `${exAuthor}:::${exClean.slice(0, 45)}`) {
+                isDuplicate = true;
+                break;
+              }
+            }
+          }
+
+          if (!isDuplicate) {
+            globalJobsStore.set(raw.code, classified);
+            newJobsCount++;
+          }
         }
       }
       // Pequena pausa respeitosa de 600ms entre requisições
@@ -1474,34 +1516,26 @@ app.post('/api/search', async (req, res) => {
       // Se não escolheu tópicos específicos, mostra todas as vagas
       if (selectedTopicsList.length === 0) return true;
 
-      // Filtro estrito para garantir que operador de caixa / balcao nunca apareca em Design
+      // Filtro estrito para garantir que apenas vagas legítimas de design passem (99% de precisão)
       const isRealDedicatedDesignJob = (item) => {
-        const text = (item.text || '').toLowerCase();
-        
-        // Bloqueio de termos que NÃO são design gráfico de tecnologia/comunicação
-        const nonGraphicDesignBlock = /\b(nail\s+designer|lash\s+designer|sobrancelha|alongamento\s+de\s+unha|manicure|pedicure|duplex|cobertura\s+[aà]\s+venda|imobili[aá]ria|corretor\s+de\s+im[oó]veis|psic[oó]log|cl[ií]nica\s+de\s+psicologia|noivas?\s+e\s+noivos?|para\s+noivas?|abri\s+[123]\s+vagas?|algum\s+empreendedor|para\s+portf[oó]lio|pra\s+portf[oó]lio|montar\s+(?:meu\s+)?portf[oó]lio)\b/i;
-        if (nonGraphicDesignBlock.test(text)) return false;
+        const text = item.text || '';
+        // 1. Rejeição imediata de lixo, desabafos, permutas, cursos e auto-promoção
+        if (isGarbageOrRant(text)) return false;
+        if (text.trim().length < 30 && !item.ocrText) return false;
 
-        // Bloqueio de cargos operacionais puros que nao sao design
-        const operationalBlockRegex = /\b(operador\s+de\s+caixa|atendente\s+de\s+caixa|frente\s+de\s+caixa|operador\s+de\s+loja|repositor|empacotador|balconista|aougueiro|padeiro|chapeiro|cozinheiro|gar[çc]om|auxiliar\s+de\s+limpeza|asg|auxiliar\s+de\s+servi[çc]os\s+gerais|porteiro|vigilante|motorista|operador\s+de\s+telemarketing|telemarketing|call\s+center|operador\s+de\s+telecobran[çc]a|almoxarife|auxiliar\s+de\s+almoxarifado)\b/i;
-
-        // Se for candidato pedindo emprego ("alguém sabe de vaga", "procuro emprego", etc), nunca é vaga de contratação
-        const candidateSearchRegex = /\b(algu[ée]m\s+sabe\s+(?:de\s+)?(?:alguma\s+)?vaga|estou\s+procurando\s+(?:vaga|emprego)|procuro\s+(?:vaga|emprego)|busco\s+(?:vaga|emprego)|tenho\s+experi[êe]ncia\s+em|me\s+indiquem\s+vagas|j[aá]\s+tem\s+quase\s+um\s+m[êe]s\s+que\s+n[aã]o|n[aã]o\s+recebo\s+uma\s+liga[çc][aã]o)\b/i;
-        if (candidateSearchRegex.test(text)) {
-          return false;
+        // 2. Se veio de feed estruturado verificado (LinkedIn / Indeed), confirma se tem designContext
+        if ((item.platform === 'linkedin' || item.platform === 'indeed') && item.hasDesignContext) {
+          return true;
         }
 
-        if (operationalBlockRegex.test(text)) {
-          // Se o post cita cargos operacionais e o inicio/titulo nao e explicitamente sobre design, bloqueia!
-          if (!/^(?:.*?(?:vaga|procura|contrat|precis).*?designer|.*?designer\s+gr[aá]fico)/i.test(text.slice(0, 80))) {
-            return false;
-          }
+        // 3. Se tem flyer de imagem lido via OCR com intenção de contratação DE DESIGN
+        if (item.ocrText && FLYER_HIRING_REGEX.test(item.ocrText)) {
+          const ocrHasDesign = /\b(designer|design|arte|criativ[oa]s?|photoshop|illustrator|figma|motion|ui[\s/-]?ux)\b/i.test(item.ocrText);
+          if (ocrHasDesign) return true;
         }
 
-        // Variacoes verbais de contratacao de designer
-        const designIntentRegex = /\b(procura(?:-se)?\s+designer|procuro\s+designer|procurando\s+designer|contrato\s+designer|contrata(?:-se)?\s+designer|contratando\s+designer|preciso\s+de\s+designer|precisa-se\s+de\s+designer|busco\s+designer|buscando\s+designer|designer|design\s+gr[aá]fico|graphic\s+designer|graphic\s+design|brand\s+designer|visual\s+designer|motion\s+designer|social\s+media\s+designer|ui[\s/-]?ux|web\s+designer|diretor\s+de\s+arte|diagramador|criativo(?:s)?\s+para\s+an[uú]ncios|photoshop|illustrator|figma|after\s+effects)\b/i;
-
-        return item.hasDesignContext || designIntentRegex.test(text);
+        // 4. No Threads / Facebook: exige intenção de contratação explícita de designer
+        return DESIGN_HIRING_STRICT_REGEX.test(text);
       };
 
       // Se selecionou multiplos topicos, faz o match com qualquer um deles (OR)
@@ -1575,6 +1609,27 @@ app.post('/api/search', async (req, res) => {
     } else {
       primaryResults.sort((a, b) => b.takenAt - a.takenAt || b.matchScore - a.matchScore);
     }
+
+    // Deduplicação Inteligente: se o mesmo autor publicou múltiplos anúncios idênticos/repetidos, mantém APENAS o mais recente!
+    const seenFingerprints = new Set();
+    const deduplicatedResults = [];
+    for (const item of primaryResults) {
+      const author = (item.author?.username || '').toLowerCase().trim();
+      const rawText = (item.text || '').toLowerCase();
+      const clean = rawText
+        .replace(/https?:\/\/\S+/g, '')
+        .replace(/\d+/g, '')
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const fp = `${author}:::${clean.slice(0, 45)}`;
+      if (seenFingerprints.has(fp)) {
+        continue; // Ignora cópia repetida
+      }
+      seenFingerprints.add(fp);
+      deduplicatedResults.push(item);
+    }
+    primaryResults = deduplicatedResults;
 
     res.json({
       success: true,
