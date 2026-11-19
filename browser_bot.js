@@ -1,69 +1,47 @@
-// browser_bot.js - Motor de Envio Real via Navegador (Threads / Instagram)
+// browser_bot.js - Conexão Direta com seu Google Chrome Aberto (Sem Captcha)
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const PROFILE_DIR = path.join(__dirname, 'data', 'browser_profile');
+const CDP_URL = 'http://127.0.0.1:9222';
 
-if (!fs.existsSync(PROFILE_DIR)) {
-  fs.mkdirSync(PROFILE_DIR, { recursive: true });
+/**
+ * Conecta diretamente ao Google Chrome que você já está usando no Mac
+ */
+async function getConnectedBrowser() {
+  try {
+    const browser = await chromium.connectOverCDP(CDP_URL);
+    const contexts = browser.contexts();
+    const context = contexts[0] || await browser.newContext();
+    return { browser, context, isCDP: true };
+  } catch (err) {
+    return null;
+  }
 }
 
 /**
- * Abre o navegador visível para o usuário fazer login no Threads e Instagram (apenas 1 vez)
+ * Envia uma mensagem direta de verdade para um usuário no Threads usando o seu Chrome
  */
-async function launchLoginSession() {
-  console.log('\n==========================================================');
-  console.log('🔑 MODO DE LOGIN DO ROBÔ DE NAVEGADOR');
-  console.log('==========================================================');
-  console.log('O Google Chrome vai abrir na sua tela agora.');
-  console.log('1. Faça login na sua conta do Threads (threads.net)');
-  console.log('2. Faça login na sua conta do Instagram (instagram.com)');
-  console.log('3. Após estar logado, volte aqui e pressione ENTER no terminal para salvar.');
-  console.log('==========================================================\n');
+async function sendThreadsDirectMessage(username, messageText) {
+  console.log(`[BrowserBot] Conectando ao seu Google Chrome para enviar DM no Threads para @${username}...`);
+  
+  const connection = await getConnectedBrowser();
+  if (!connection) {
+    throw new Error('CHROME_NOT_CONNECTED: Seu Chrome precisa estar aberto com a porta de automação habilitada. Rode ./start_chrome.sh primeiro.');
+  }
 
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    channel: 'chrome',
-    headless: false,
-    viewport: { width: 1280, height: 800 }
-  });
-
-  const page = context.pages()[0] || await context.newPage();
-  await page.goto('https://www.threads.com/login');
-
-  await new Promise(resolve => {
-    process.stdin.once('data', () => {
-      resolve();
-    });
-  });
-
-  console.log('✓ Sessão e cookies salvos com sucesso em data/browser_profile!');
-  await context.close();
-  process.exit(0);
-}
-
-/**
- * Envia uma mensagem direta de verdade para um usuário no Threads
- */
-async function sendThreadsDirectMessage(username, messageText, options = { headless: false }) {
-  console.log(`[BrowserBot] Iniciando envio de DM no Threads para @${username}...`);
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    channel: 'chrome',
-    headless: options.headless,
-    viewport: { width: 1280, height: 800 }
-  });
-
-  const page = context.pages()[0] || await context.newPage();
+  const { browser, context } = connection;
+  const page = await context.newPage();
 
   try {
     const profileUrl = `https://www.threads.com/@${username}`;
+    console.log(`[BrowserBot] Navegando até o perfil: ${profileUrl}`);
     await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
 
-    // Procura botão de mensagem ou menção
-    // No Threads web, botões comuns: "Message" ou SVG de aviãozinho/chat
     const messageBtn = await page.$('div[role="button"]:has-text("Message"), div[role="button"]:has-text("Mensagem")');
     if (messageBtn) {
+      console.log('[BrowserBot] Abrindo caixa de mensagem...');
       await messageBtn.click();
       await page.waitForTimeout(2500);
 
@@ -74,41 +52,43 @@ async function sendThreadsDirectMessage(username, messageText, options = { headl
       await page.keyboard.press('Enter');
       console.log(`[BrowserBot] ✓ Mensagem enviada com sucesso no Threads para @${username}!`);
       await page.waitForTimeout(2000);
-      await context.close();
+      await page.close();
       return { success: true, platform: 'threads' };
     } else {
       console.log(`[BrowserBot] Perfil @${username} não tem botão de DM direto visível.`);
-      await context.close();
+      await page.close();
       return { success: false, reason: 'no_dm_button' };
     }
   } catch (err) {
     console.error(`[BrowserBot] Erro ao enviar DM no Threads: ${err.message}`);
-    await context.close();
+    await page.close();
     return { success: false, error: err.message };
   }
 }
 
 /**
- * Envia uma mensagem direta de verdade no Instagram
+ * Envia uma mensagem direta de verdade no Instagram usando o seu Chrome
  */
-async function sendInstagramDirectMessage(username, messageText, options = { headless: false }) {
-  console.log(`[BrowserBot] Iniciando envio de DM no Instagram para @${username}...`);
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    channel: 'chrome',
-    headless: options.headless,
-    viewport: { width: 1280, height: 800 }
-  });
+async function sendInstagramDirectMessage(username, messageText) {
+  console.log(`[BrowserBot] Conectando ao seu Google Chrome para enviar DM no Instagram para @${username}...`);
+  
+  const connection = await getConnectedBrowser();
+  if (!connection) {
+    throw new Error('CHROME_NOT_CONNECTED: Seu Chrome precisa estar aberto com a porta de automação habilitada. Rode ./start_chrome.sh primeiro.');
+  }
 
-  const page = context.pages()[0] || await context.newPage();
+  const { browser, context } = connection;
+  const page = await context.newPage();
 
   try {
     const profileUrl = `https://www.instagram.com/${username}/`;
+    console.log(`[BrowserBot] Navegando até o perfil: ${profileUrl}`);
     await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
 
-    // Botão de Enviar Mensagem no perfil do Instagram
     const messageBtn = await page.$('div[role="button"]:has-text("Enviar mensagem"), div[role="button"]:has-text("Message")');
     if (messageBtn) {
+      console.log('[BrowserBot] Abrindo chat de mensagem direta...');
       await messageBtn.click();
       await page.waitForTimeout(3500);
 
@@ -119,31 +99,48 @@ async function sendInstagramDirectMessage(username, messageText, options = { hea
       await page.keyboard.press('Enter');
       console.log(`[BrowserBot] ✓ Mensagem enviada com sucesso no Instagram para @${username}!`);
       await page.waitForTimeout(2000);
-      await context.close();
+      await page.close();
       return { success: true, platform: 'instagram' };
     } else {
       console.log(`[BrowserBot] Botão de mensagem não encontrado no perfil @${username}`);
-      await context.close();
+      await page.close();
       return { success: false, reason: 'no_message_button' };
     }
   } catch (err) {
     console.error(`[BrowserBot] Erro ao enviar DM no Instagram: ${err.message}`);
-    await context.close();
+    await page.close();
     return { success: false, error: err.message };
   }
 }
 
+async function testConnection() {
+  const conn = await getConnectedBrowser();
+  if (conn) {
+    console.log('\n==========================================================');
+    console.log('✓ CONECTADO COM SUCESSO ao seu Google Chrome!');
+    console.log('O robô já tem acesso às suas contas do Threads, Instagram e Gmail.');
+    console.log('Zero CAPTCHA, 100% como se você mesmo estivesse usando.');
+    console.log('==========================================================\n');
+    await conn.browser.disconnect();
+    return true;
+  } else {
+    console.log('\n==========================================================');
+    console.log('❌ Chrome ainda não está com a porta de conexão aberta.');
+    console.log('Para conectar o seu navegador atual sem pedir login nem captcha:');
+    console.log('1. Feche o Chrome (Cmd + Q)');
+    console.log('2. Execute no terminal: ./start_chrome.sh');
+    console.log('==========================================================\n');
+    return false;
+  }
+}
+
 module.exports = {
-  launchLoginSession,
+  getConnectedBrowser,
   sendThreadsDirectMessage,
-  sendInstagramDirectMessage
+  sendInstagramDirectMessage,
+  testConnection
 };
 
 if (require.main === module) {
-  const cmd = process.argv[2];
-  if (cmd === 'login') {
-    launchLoginSession();
-  } else {
-    console.log('Uso: node browser_bot.js login');
-  }
+  testConnection();
 }
