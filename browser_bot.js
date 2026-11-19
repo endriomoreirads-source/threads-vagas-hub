@@ -59,9 +59,20 @@ function executeJsOnTab(tabId, jsCode) {
   }
 }
 
+async function waitForJsCondition(tabId, jsCondition, maxAttempts = 12, intervalMs = 1000) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, intervalMs));
+    const res = executeJsOnTab(tabId, jsCondition);
+    if (res && res !== 'false' && res !== 'not_found' && res !== 'tab_not_found') {
+      return res;
+    }
+  }
+  return null;
+}
+
 /**
  * Ativa temporariamente a aba alvo para permitir colagem via Cmd+V e envio,
- * restaurando a aba onde o usuário estava em seguida.
+ * verificando se o texto foi realmente colado antes de clicar em Enviar.
  */
 function pasteAndSendInTab(tabId) {
   if (!tabId) return false;
@@ -74,46 +85,76 @@ function pasteAndSendInTab(tabId) {
           if (id of t as text) is "${tabId}" then
             set origIdx to active tab index of w
             set active tab index of w to idx
+            delay 0.4
             
-            -- Foca o campo de texto
+            -- Clica e foca o campo de texto
             tell t to execute javascript "
               const box = document.querySelector('div[role=\\"textbox\\"][contenteditable=\\"true\\"], textarea');
-              if (box) box.focus();
+              if (box) { box.click(); box.focus(); }
             "
+            delay 0.3
             
-            -- Cola o texto do clipboard com Cmd+V
+            -- Garante Chrome em primeiro plano e cola o texto do clipboard com Cmd+V
             tell application "System Events"
               tell process "Google Chrome"
                 set frontmost to true
+                delay 0.2
                 keystroke "v" using command down
               end tell
             end tell
             
             delay 0.8
             
+            -- Verifica se o texto entrou; se não entrou, tenta colar mais uma vez
+            set boxText to (tell t to execute javascript "
+              (function() {
+                const box = document.querySelector('div[role=\\"textbox\\"][contenteditable=\\"true\\"], textarea');
+                return box ? (box.innerText || box.value || '').trim() : '';
+              })()
+            ")
+            if boxText is "" then
+              tell t to execute javascript "
+                const box = document.querySelector('div[role=\\"textbox\\"][contenteditable=\\"true\\"], textarea');
+                if (box) { box.click(); box.focus(); }
+              "
+              delay 0.3
+              tell application "System Events"
+                tell process "Google Chrome"
+                  set frontmost to true
+                  delay 0.2
+                  keystroke "v" using command down
+                end tell
+              end tell
+              delay 0.8
+            end if
+            
             -- Clica no botão oficial de Enviar que aparece após digitar
-            tell t to execute javascript "
+            set clickRes to (tell t to execute javascript "
               (function() {
                 const sendSvg = document.querySelector('svg[title=\\"Enviar\\"], svg[aria-label=\\"Enviar\\"], svg[title=\\"Send\\"], svg[aria-label=\\"Send\\"]');
                 if (sendSvg) {
                   const btn = sendSvg.closest('div[role=\\"button\\"]') || sendSvg.parentElement || sendSvg;
+                  btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                  btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
                   btn.click();
                   return 'clicked_svg';
                 }
                 return 'not_found';
               })()
-            "
+            ")
             
             delay 0.5
             
-            -- Pressiona Return como garantia extra
-            tell application "System Events"
-              tell process "Google Chrome"
-                keystroke return
+            -- Se o botão SVG não foi encontrado (ex: Instagram), pressiona Return
+            if clickRes is not "clicked_svg" then
+              tell application "System Events"
+                tell process "Google Chrome"
+                  keystroke return
+                end tell
               end tell
-            end tell
+              delay 0.4
+            end if
             
-            delay 0.3
             set active tab index of w to origIdx
             return "sent"
           end if
@@ -163,10 +204,9 @@ async function sendThreadsDirectMessage(username, messageText) {
     throw new Error('Não foi possível criar uma nova aba no Chrome.');
   }
 
-  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada. Aguardando carregamento do perfil...`);
-  await new Promise(r => setTimeout(r, 4500));
+  console.log(`[BrowserBot] ✓ Aba [${tabId}] criada. Aguardando botão de mensagem...`);
 
-  // 1. Clica no botão "Enviar mensagem" dentro daquela aba específica
+  // 1. Aguarda e clica no botão "Enviar mensagem" dentro daquela aba específica
   const clickScript = `
     (function() {
       const all = Array.from(document.querySelectorAll('div[role="button"], button, span, a'));
@@ -182,14 +222,26 @@ async function sendThreadsDirectMessage(username, messageText) {
       return 'not_found';
     })()
   `;
-  const clickRes = executeJsOnTab(tabId, clickScript);
+  const clickRes = await waitForJsCondition(tabId, clickScript, 10, 1000);
 
   if (clickRes === 'clicked') {
     console.log('[BrowserBot] ✓ Botão "Enviar mensagem" clicado com sucesso!');
-    console.log('[BrowserBot] Aguardando abertura do chat...');
-    await new Promise(r => setTimeout(r, 4000));
+    console.log('[BrowserBot] Aguardando caixa de texto do chat carregar...');
 
-    // 2. Cola o texto e clica no botão oficial de Enviar
+    const boxScript = `
+      (function() {
+        const box = document.querySelector('div[role="textbox"][contenteditable="true"], textarea');
+        return box ? 'box_ready' : 'not_found';
+      })()
+    `;
+    const boxReady = await waitForJsCondition(tabId, boxScript, 12, 1000);
+    if (!boxReady) {
+      console.log(`[BrowserBot] ❌ Caixa de mensagem não carregou a tempo para @${username}.`);
+      return { success: false, platform: 'threads', tabId };
+    }
+
+    // Garante clipboard atualizado imediatamente antes de colar
+    copyToClipboard(messageText);
     console.log('[BrowserBot] 📝 Preenchendo texto e enviando mensagem...');
     const sentOk = pasteAndSendInTab(tabId);
     if (sentOk) {
@@ -215,8 +267,19 @@ async function sendInstagramDirectMessage(username, messageText) {
   const tabId = openNewTabInChrome(dmUrl);
 
   console.log(`[BrowserBot] ✓ Aba [${tabId}] criada para Instagram. Aguardando chat abrir...`);
-  await new Promise(r => setTimeout(r, 5500));
+  const boxScript = `
+    (function() {
+      const box = document.querySelector('div[role="textbox"][contenteditable="true"], textarea');
+      return box ? 'box_ready' : 'not_found';
+    })()
+  `;
+  const boxReady = await waitForJsCondition(tabId, boxScript, 12, 1000);
+  if (!boxReady) {
+    console.log(`[BrowserBot] ❌ Chat do Instagram não carregou a tempo para @${username}.`);
+    return { success: false, platform: 'instagram', tabId };
+  }
 
+  copyToClipboard(messageText);
   console.log('[BrowserBot] 📝 Preenchendo texto e enviando mensagem no Instagram...');
   const sentOk = pasteAndSendInTab(tabId);
   if (sentOk) {

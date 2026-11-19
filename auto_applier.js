@@ -104,8 +104,8 @@ function isStrictDesignHiring(job) {
 // Regex para detecção de e-mail no texto
 const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
 
-// Regex para detecção explícita de Instagram no texto
-const IG_HANDLE_REGEX = /\b(?:ig\s*dm|direct\s*do\s*ig|instagram|insta|no\s+ig)\s*[:|-]?\s*@?([a-zA-Z0-9._]{3,30})\b/i;
+// Regex para detecção explícita de Instagram no texto (exige @ ou link instagram.com/)
+const IG_HANDLE_REGEX = /(?:(?:ig\s*dm|direct\s*do\s*ig|instagram|insta|no\s+ig)\s*[:|-]?\s*@([a-zA-Z0-9._]{3,30})|instagram\.com\/([a-zA-Z0-9._]{3,30}))/i;
 
 // Regex para verificar se o post exige pretensão salarial
 const SALARY_PROMPT_REGEX = /\b(pretens[ãa]o|pretensao\s+salarial|sal[áa]rio\s+pretendido|quanto\s+cobra|proposta\s+salarial|faixa\s+salarial|salary\s+expectation|expected\s+salary|rate\s+per\s+hour|hourly\s+rate|monthly\s+rate|your\s+rate|send\s+your\s+rate|budget\s+expectation)\b/i;
@@ -136,8 +136,9 @@ function extractJobContacts(job) {
   let igHandle = null;
   let hasExplicitInstagram = false;
   const igMatch = text.match(IG_HANDLE_REGEX);
-  if (igMatch && igMatch[1]) {
-    igHandle = igMatch[1].replace('@', '').trim();
+  const rawIg = igMatch && (igMatch[1] || igMatch[2]);
+  if (rawIg) {
+    igHandle = rawIg.replace('@', '').trim();
     hasExplicitInstagram = true;
   }
 
