@@ -11,7 +11,7 @@ function copyToClipboard(text) {
 }
 
 /**
- * Cria uma NOVA aba dedicada no Google Chrome e retorna seu ID exclusivo.
+ * Cria uma NOVA aba dedicada no Google Chrome e retorna seu ID exclusivo em texto.
  * O usuário pode navegar em outras abas ou usar outros programas sem afetar esta aba.
  */
 function openNewTabInChrome(url) {
@@ -22,7 +22,7 @@ function openNewTabInChrome(url) {
       end if
       set targetWindow to front window
       set newTab to (make new tab at end of tabs of targetWindow with properties {URL:"${url}"})
-      return (get id of newTab)
+      return (get id of newTab as text)
     end tell
   `;
   try {
@@ -40,12 +40,13 @@ function openNewTabInChrome(url) {
  */
 function executeJsOnTab(tabId, jsCode) {
   if (!tabId) return null;
+  const escapedJs = jsCode.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const script = `
     tell application "Google Chrome"
       repeat with w in windows
         repeat with t in tabs of w
-          if id of t is ${tabId} then
-            return (execute t javascript "${jsCode.replace(/"/g, '\\"')}")
+          if (id of t as text) is "${tabId}" then
+            return (execute t javascript "${escapedJs}")
           end if
         end repeat
       end repeat
@@ -69,7 +70,7 @@ function sendKeyToTab(tabId, keyName, useCommand = false) {
     tell application "Google Chrome"
       repeat with w in windows
         repeat with t in tabs of w
-          if id of t is ${tabId} then
+          if (id of t as text) is "${tabId}" then
             set origIdx to active tab index of w
             set active tab index of w to (get index of t)
             tell application "System Events"
@@ -99,7 +100,7 @@ function closeTab(tabId) {
     tell application "Google Chrome"
       repeat with w in windows
         repeat with t in tabs of w
-          if id of t is ${tabId} then
+          if (id of t as text) is "${tabId}" then
             tell t to close
             return
           end if
@@ -150,7 +151,8 @@ async function sendThreadsDirectMessage(username, messageText) {
 
   if (clickRes === 'clicked') {
     console.log('[BrowserBot] ✓ Botão "Enviar mensagem" clicado com sucesso na aba isolada!');
-    await new Promise(r => setTimeout(r, 3500));
+    console.log('[BrowserBot] Aguardando abertura do chat...');
+    await new Promise(r => setTimeout(r, 4000));
 
     // 2. Insere o texto diretamente no editor Lexical daquela aba
     const sanitizedText = JSON.stringify(messageText);
@@ -170,14 +172,14 @@ async function sendThreadsDirectMessage(username, messageText) {
       })()
     `;
     const insertRes = executeJsOnTab(tabId, insertScript);
+    console.log(`[BrowserBot] ✓ Texto da mensagem inserido (${insertRes})!`);
 
     // 3. Pressiona Return para enviar e restaura a aba que você estava usando
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 1000));
     sendKeyToTab(tabId, 'return', false);
     console.log(`[BrowserBot] ✓ Mensagem enviada para @${username} com sucesso!`);
   } else {
-    console.log('[BrowserBot] ⚠️ Aviso: Botão de mensagem não encontrado ou bloqueado pelo Chrome.');
-    console.log('             (Certifique-se de que "Visualização > Desenvolvedor > Permitir JavaScript de Eventos da Apple" está marcado).');
+    console.log('[BrowserBot] ⚠️ Aviso: Botão de mensagem não encontrado nesta página.');
   }
 
   return { success: true, platform: 'threads', tabId };
@@ -213,9 +215,10 @@ async function sendInstagramDirectMessage(username, messageText) {
       return 'inserted';
     })()
   `;
-  executeJsOnTab(tabId, insertScript);
+  const insertRes = executeJsOnTab(tabId, insertScript);
+  console.log(`[BrowserBot] ✓ Texto inserido no Instagram (${insertRes})!`);
 
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(r => setTimeout(r, 1000));
   sendKeyToTab(tabId, 'return', false);
   console.log(`[BrowserBot] ✓ Mensagem enviada no Instagram para @${username}!`);
 
