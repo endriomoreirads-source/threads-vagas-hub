@@ -1,5 +1,6 @@
 const { fetchLinkedInLiveJobs, getFacebookPublicJobs, getIndeedVerifiedJobs, getGoogleJobsVerified, getAITechVerifiedJobs } = require('./platforms_feeder.js');
 const { extractTextFromImageUrl, FLYER_HIRING_REGEX } = require('./ocr_engine.js');
+const autoApplier = require('./auto_applier.js');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -1645,6 +1646,89 @@ app.post('/api/search', async (req, res) => {
       error: 'Falha ao buscar vagas.',
       details: error.message
     });
+  }
+});
+
+// ==========================================
+// ROTAS DE CANDIDATURA INTELIGENTE & AUTO-APPLY
+// ==========================================
+
+// Retorna as configurações de candidatura (templates, contatos, faixas salariais)
+app.get('/api/auto-apply/config', (req, res) => {
+  try {
+    const config = autoApplier.loadConfig();
+    res.json({ success: true, config });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Gera o pacote de candidatura completo para uma vaga específica
+app.post('/api/auto-apply/package', (req, res) => {
+  try {
+    const { jobId, job } = req.body;
+    let targetJob = job;
+    if (!targetJob && jobId) {
+      targetJob = globalJobsStore.get(jobId);
+    }
+    if (!targetJob) {
+      return res.status(404).json({ success: false, error: 'Vaga não encontrada' });
+    }
+    const pkg = autoApplier.generateApplicationPackage(targetJob);
+    res.json({ success: true, package: pkg });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Registra uma candidatura efetuada
+app.post('/api/auto-apply/mark', (req, res) => {
+  try {
+    const { jobId, channel, notes } = req.body;
+    if (!jobId) {
+      return res.status(400).json({ success: false, error: 'jobId obrigatório' });
+    }
+    autoApplier.markAsApplied(jobId, channel || 'manual', notes || '');
+    res.json({ success: true, jobId, applied: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Retorna histórico de vagas já candidatadas
+app.get('/api/auto-apply/applied', (req, res) => {
+  try {
+    const list = autoApplier.loadAppliedJobs();
+    res.json({ success: true, count: list.length, appliedJobs: list });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Retorna a fila de vagas prontas para candidatura automática
+app.get('/api/auto-apply/queue', (req, res) => {
+  try {
+    const appliedSet = new Set(autoApplier.loadAppliedJobs().map(a => a.jobId));
+    const queue = [];
+    for (const [id, job] of globalJobsStore.entries()) {
+      if (appliedSet.has(id)) continue;
+      if (job.hasDesignContext || (job.jobTopics && job.jobTopics.includes('design'))) {
+        const pkg = autoApplier.generateApplicationPackage(job);
+        queue.push({
+          id: job.id,
+          code: job.code,
+          platform: job.platform,
+          author: job.author,
+          takenAt: job.takenAt,
+          text: job.text,
+          application: pkg
+        });
+        if (queue.length >= 50) break;
+      }
+    }
+    res.json({ success: true, totalInQueue: queue.length, queue });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

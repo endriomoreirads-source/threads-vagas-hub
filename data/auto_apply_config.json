@@ -1,0 +1,45 @@
+{
+  "candidate": {
+    "name": "Endrio Moreira",
+    "email": "Endriodscontato@gmail.com",
+    "phone": "(21) 96667-2372",
+    "phoneDigits": "5521966672372",
+    "portfolioUrl": "https://endriodsgn.vercel.app/",
+    "instagram": "Endriodsgn",
+    "behance": "Endrio Moreira",
+    "linkedin": "Endrio Moreira"
+  },
+  "salary": {
+    "br": {
+      "min": 1800,
+      "max": 2000,
+      "currency": "BRL",
+      "text": "Minha pretensão salarial para a oportunidade está na faixa de R$ 1.800 a R$ 2.000 / mês (aberto a alinhamento conforme o escopo e modelo da vaga)."
+    },
+    "international": {
+      "min": 500,
+      "max": 800,
+      "currency": "USD",
+      "text": "My salary expectation for this role is in the range of $500 – $800 / month (open to alignment depending on scope and hours)."
+    }
+  },
+  "templates": {
+    "pt": {
+      "subject": "Designer Gráfico & Web | Endrio Moreira",
+      "intro": "Olá! Tudo bem? Me chamo Endrio.\nVi a oportunidade que você anunciou e tenho grande interesse em colaborar com você e sua equipe!",
+      "body": "Atuo como designer gráfico há mais de 5 anos, com experiência sólida em diversos nichos. Minha especialidade é social media design, além de ter trabalhado em gráfica cuidando de materiais impressos e fechamento de arquivos. Também crio layouts para landing pages e cuido da implementação visual dos projetos.\n\nVocê pode conferir meu portfólio completo com meus trabalhos e contatos aqui:\n👉 Portfólio: https://endriodsgn.vercel.app/\n\n📩 Contatos diretos:\nE-mail: Endriodscontato@gmail.com\nWhatsApp: (21) 96667-2372\nInstagram: @Endriodsgn\n\nAgradeço pela atenção e estou à disposição para conversarmos!\nAtenciosamente,\nEndrio Moreira"
+    },
+    "en": {
+      "subject": "Designer | Endrio Moreira",
+      "intro": "Hello! Nice to meet you—my name is Endrio.\nI just came across this opportunity and am very interested.",
+      "body": "I have been working as a graphic designer for over 5 years, with experience across various niches. My specialty is social media design, but I also spent a year working at a print shop, where I gained solid experience with printed materials. Additionally, I create layouts for landing pages and handle the visual implementation for these projects.\n\nYou can find my portfolio—which also includes my contact information—at the link below:\n👉 Portfolio: https://endriodsgn.vercel.app/\n\nThank you for your time and consideration; I look forward to the possibility of speaking with you!\nBest regards,\nEndrio Moreira"
+    }
+  },
+  "timing": {
+    "activeStartHour": 8.5,
+    "activeEndHour": 20.0,
+    "minDelayMinutes": 30,
+    "maxDelayMinutes": 40,
+    "maxDailyDms": 15
+  }
+}
